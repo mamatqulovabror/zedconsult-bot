@@ -1,0 +1,12 @@
+TOKEN = "8594925912:AAG13VVYd5RGP20lDPPQRufhHypXjQrsdeI"
+ADMIN_ID = 746409702
+ADMIN_USERNAME = "@kaccocii"
+CARD = "5614688706193314"
+PRICE = 100_000
+CONSULTATION_DURATION = 30
+PAYMENT_METHODS = "💳 Payme\n💳 Click\n💳 Alifmobi\n💳 Uzumbank"
+ABOUT_TEXT = "🎓 *Consulto* — xalqaro ta'lim va viza maslahat xizmati.\n\n📱 Telegram: @kaccocii"
+SLOT_START = "09:00"
+SLOT_END = "22:00"
+SLOT_INTERVAL = 30
+REMINDER_MINUTES = 30

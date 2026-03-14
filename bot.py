@@ -9,7 +9,7 @@ from telegram.ext import (
 from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES
 from data import users, user_db, bookings_db, register_user, get_lang, save_booking, delete_booking
 from texts import t
-from keyboards import main_menu, back_menu, country_keyboard, phone_keyboard, language_keyboard, COUNTRIES
+from keyboards import main_menu, back_menu, country_keyboard, degree_keyboard, phone_keyboard, language_keyboard, COUNTRIES, DEGREE_LEVELS
 from slots import ALL_SLOTS, generate_dates
 from videos import get_video
 from admin.panel import admin_help, admin_stats, admin_users, admin_bookings
@@ -39,10 +39,6 @@ def clear(user_id):
     users[user_id].clear()
 
 
-# ========================
-# START
-# ========================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_user(update.effective_user)
     user_id = update.effective_user.id
@@ -57,10 +53,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ========================
-# MESSAGE HANDLER
-# ========================
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
@@ -69,11 +61,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users:
         users[user_id] = {}
 
-    # --- ADMIN VIDEO JARAYONI ---
     if await handle_admin_video_text(update, context):
         return
 
-    # --- TIL TANLASH ---
     if step(user_id) == "lang":
         if text == "🇺🇿 O'zbek":
             user_db[user_id]["lang"] = "uz"
@@ -87,33 +77,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
         return
 
-    # --- TIL O'ZGARTIRISH ---
     if text in ("🌐 Til / Language", t(user_id, "btn_lang")):
         clear(user_id)
         users[user_id]["step"] = "lang"
         await update.message.reply_text(t(user_id, "welcome"), reply_markup=language_keyboard(), parse_mode="Markdown")
         return
 
-    # --- ORQAGA / ASOSIY ---
     if is_back(text, user_id):
         clear(user_id)
         await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
         return
 
-    # --- BIZ HAQIMIZDA ---
     if text == t(user_id, "btn_about"):
         await update.message.reply_text(t(user_id, "about"), reply_markup=back_menu(user_id), parse_mode="Markdown")
         return
 
-    # --- ADMINGA MUROJAAT ---
     if text == t(user_id, "btn_admin"):
         await update.message.reply_text(t(user_id, "admin_contact"), reply_markup=back_menu(user_id), parse_mode="Markdown")
         return
 
-    # ========================
     # UNIVERSITETGA TOPSHIRISH
-    # ========================
-
     if text == t(user_id, "btn_university"):
         clear(user_id)
         users[user_id]["step"] = "university_country"
@@ -124,30 +107,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text not in COUNTRIES:
             await update.message.reply_text(t(user_id, "invalid_input"))
             return
-        data = get_video("university", text)
-        file_id = data.get("file_id", "")
-        extra_text = data.get("text", "")
+        users[user_id]["country"] = text
+        users[user_id]["step"] = "university_degree"
+        await update.message.reply_text(
+            f"🎓 *{text}*
+
+Qaysi dasturga topshirmoqchisiz?",
+            reply_markup=degree_keyboard(user_id),
+            parse_mode="Markdown"
+        )
+        return
+
+    if step(user_id) == "university_degree":
+        degree_map = {
+            "🎓 Bakalavrga topshirish": "bakalavr",
+            "📚 Magistraturaga topshirish": "magistr",
+            "🔬 Doktorantura": "doktorantura",
+        }
+        if text not in degree_map:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        country = users[user_id].get("country", "")
+        degree = degree_map[text]
+        file_id = get_video("university", country, degree)
         keyboard = back_menu(user_id)
         if file_id:
-            caption = f"🎓 *{text}*"
-            if extra_text:
-                caption += f"\n\n{extra_text}"
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
                 video=file_id,
-                caption=caption,
+                caption=f"🎓 *{country}* — {text}",
                 parse_mode="Markdown",
                 reply_markup=keyboard
             )
         else:
-            await update.message.reply_text(t(user_id, "video_coming", country=text), reply_markup=keyboard)
+            await update.message.reply_text(
+                f"🎬 *{country}* — {text} uchun video tez orada qo'shiladi.",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
         clear(user_id)
         return
 
-    # ========================
     # VIZAGA TOPSHIRISH
-    # ========================
-
     if text == t(user_id, "btn_visa"):
         clear(user_id)
         users[user_id]["step"] = "visa_country"
@@ -158,30 +159,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text not in COUNTRIES:
             await update.message.reply_text(t(user_id, "invalid_input"))
             return
-        data = get_video("visa", text)
-        file_id = data.get("file_id", "")
-        extra_text = data.get("text", "")
+        users[user_id]["country"] = text
+        users[user_id]["step"] = "visa_degree"
+        await update.message.reply_text(
+            f"🛂 *{text}*
+
+Qaysi viza turi?",
+            reply_markup=degree_keyboard(user_id),
+            parse_mode="Markdown"
+        )
+        return
+
+    if step(user_id) == "visa_degree":
+        degree_map = {
+            "🎓 Bakalavrga topshirish": "bakalavr",
+            "📚 Magistraturaga topshirish": "magistr",
+            "🔬 Doktorantura": "doktorantura",
+        }
+        if text not in degree_map:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        country = users[user_id].get("country", "")
+        degree = degree_map[text]
+        file_id = get_video("visa", country, degree)
         keyboard = back_menu(user_id)
         if file_id:
-            caption = f"🛂 *{text}*"
-            if extra_text:
-                caption += f"\n\n{extra_text}"
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
                 video=file_id,
-                caption=caption,
+                caption=f"🛂 *{country}* — {text}",
                 parse_mode="Markdown",
                 reply_markup=keyboard
             )
         else:
-            await update.message.reply_text(t(user_id, "video_coming", country=text), reply_markup=keyboard)
+            await update.message.reply_text(
+                f"🎬 *{country}* — {text} uchun video tez orada qo'shiladi.",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
         clear(user_id)
         return
 
-    # ========================
     # KONSULTATSIYAGA YOZILISH
-    # ========================
-
     if text == t(user_id, "btn_consult"):
         dates_uz, dates_en = generate_dates()
         dates = dates_uz if get_lang(user_id) == "uz" else dates_en
@@ -235,10 +254,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-# ========================
-# CONTACT
-# ========================
-
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     register_user(update.effective_user)
@@ -265,10 +280,6 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users[user_id]["step"] = "slot"
 
 
-# ========================
-# SCREENSHOT
-# ========================
-
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     register_user(update.effective_user)
@@ -285,13 +296,22 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ADMIN_ID,
         update.message.photo[-1].file_id,
         caption=(
-            f"📥 *Yangi konsultatsiya*\n\n"
-            f"👤 Ism: {name}\n"
-            f"📱 Tel: {phone}\n"
-            f"📅 Sana: {date}\n"
-            f"⏰ Vaqt: {slot}\n"
-            f"🆔 ID: `{user_id}`\n\n"
-            f"✅ /confirm {user_id}\n"
+            f"📥 *Yangi konsultatsiya*
+
+"
+            f"👤 Ism: {name}
+"
+            f"📱 Tel: {phone}
+"
+            f"📅 Sana: {date}
+"
+            f"⏰ Vaqt: {slot}
+"
+            f"🆔 ID: `{user_id}`
+
+"
+            f"✅ /confirm {user_id}
+"
             f"❌ /reject {user_id}"
         ),
         parse_mode="Markdown"
@@ -299,10 +319,6 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(t(user_id, "payment_pending"), reply_markup=back_menu(user_id))
     users[user_id]["step"] = "waiting"
 
-
-# ========================
-# CONFIRM
-# ========================
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -339,10 +355,6 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {user_id} tasdiqlandi.")
 
 
-# ========================
-# REJECT
-# ========================
-
 async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -361,10 +373,6 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear(user_id)
     await update.message.reply_text(f"❌ {user_id} rad etildi.")
 
-
-# ========================
-# ESLATMA
-# ========================
 
 async def schedule_reminder(context, user_id, date, slot):
     try:
@@ -393,10 +401,6 @@ async def schedule_reminder(context, user_id, date, slot):
     except Exception:
         pass
 
-
-# ========================
-# APP
-# ========================
 
 app = ApplicationBuilder().token(TOKEN).build()
 

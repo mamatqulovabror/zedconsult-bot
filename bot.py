@@ -110,9 +110,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users[user_id]["country"] = text
         users[user_id]["step"] = "university_degree"
         await update.message.reply_text(
-            f"🎓 *{text}*
-
-Qaysi dasturga topshirmoqchisiz?",
+            "Qaysi dasturga topshirmoqchisiz?",
             reply_markup=degree_keyboard(user_id),
             parse_mode="Markdown"
         )
@@ -162,9 +160,7 @@ Qaysi dasturga topshirmoqchisiz?",
         users[user_id]["country"] = text
         users[user_id]["step"] = "visa_degree"
         await update.message.reply_text(
-            f"🛂 *{text}*
-
-Qaysi viza turi?",
+            "Qaysi viza turi?",
             reply_markup=degree_keyboard(user_id),
             parse_mode="Markdown"
         )

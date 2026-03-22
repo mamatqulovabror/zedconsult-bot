@@ -8,7 +8,7 @@ from telegram.ext import (
 from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES
 from data import users, user_db, bookings_db, register_user, get_lang, save_booking, delete_booking
 from texts import t
-from keyboards import main_menu, back_menu, country_keyboard, degree_keyboard, phone_keyboard, language_keyboard, COUNTRIES, DEGREE_LEVELS
+from keyboards import main_menu, back_menu, country_keyboard, degree_keyboard, phone_keyboard, language_keyboard, COUNTRIES, DEGREE_LEVELS, WORK_COUNTRIES
 from slots import ALL_SLOTS, generate_dates
 from videos import get_video
 from admin.panel import admin_help, admin_stats, admin_users, admin_bookings
@@ -165,6 +165,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_video(chat_id=update.effective_chat.id, video=file_id, caption=country + " - " + text, reply_markup=keyboard)
         else:
             await update.message.reply_text(t(user_id, "video_coming", country=country), reply_markup=keyboard)
+        clear(user_id)
+        return
+
+    if text == "U0001F4BC Ishga topshirish":
+        clear(user_id)
+        users[user_id]["step"] = "work_country"
+        keyboard = [[c] for c in WORK_COUNTRIES]
+        keyboard.append([t(user_id, "back"), t(user_id, "main")])
+        from telegram import ReplyKeyboardMarkup as RKM
+        await update.message.reply_text("Davlatni tanlang:", reply_markup=RKM(keyboard, resize_keyboard=True))
+        return
+
+    if step(user_id) == "work_country":
+        if text not in WORK_COUNTRIES:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        users[user_id]["country"] = text
+        file_id = get_video("work", text, "general")
+        keyboard = back_menu(user_id)
+        if file_id:
+            await context.bot.send_video(chat_id=update.effective_chat.id, video=file_id, caption=text, reply_markup=keyboard)
+        else:
+            await update.message.reply_text(t(user_id, "video_coming", country=text), reply_markup=keyboard)
         clear(user_id)
         return
 

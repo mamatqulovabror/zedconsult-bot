@@ -43,6 +43,7 @@ def main_menu(user_id):
     keyboard = [
         [t(user_id, "btn_university")],
         [t(user_id, "btn_visa")],
+        ["\U0001F4BC Ishga topshirish"],
         [t(user_id, "btn_consult")],
         [t(user_id, "btn_about"), t(user_id, "btn_admin")],
         [t(user_id, "btn_lang")],

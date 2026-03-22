@@ -14,7 +14,7 @@ from videos import get_video
 from admin.panel import admin_help, admin_stats, admin_users, admin_bookings
 from admin.broadcast import admin_broadcast, admin_send_user
 from admin.video import setvideo, listvideo, handle_admin_video_text, handle_admin_video_file
-from admin.sections import addsection, delsection, addcountry, delcountry, addcategory, delcategory, addtype, deltype, svideo, handle_svideo_file, listall
+from admin.sections import addsection, delsection, addcountry, delcountry, addcategory, delcategory, addtype, deltype, svideo, handle_svideo_file, listall, handle_sections_message, get_section_names
 
 booked_slots = {}
 
@@ -66,6 +66,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users[user_id] = {}
 
     if await handle_admin_video_text(update, context):
+        return
+    if await handle_sections_message(update, context):
         return
 
     if step(user_id) == "lang":

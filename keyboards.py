@@ -25,18 +25,18 @@ COUNTRIES = [
 DEGREE_LEVELS = ["Bakalavrga topshirish", "Magistraturaga topshirish", "Doktorantura"]
 
 WORK_COUNTRIES = [
-    "\U0001F1F7\U0001F1FA Rossiya",
-    "\U0001F1F0\U0001F1F7 Korea",
-    "\U0001F1F9\U0001F1F7 Turkiya",
-    "\U0001F1E6\U0001F1EA BAA (Dubai)",
-    "\U0001F1F8\U0001F1E6 Saudiya Arabistoni",
-    "\U0001F1F0\U0001F1FF Qozog'iston",
-    "\U0001F1E9\U0001F1EA Germaniya",
-    "\U0001F1F5\U0001F1F1 Polsha",
-    "\U0001F1E8\U0001F1FF Chexiya",
-    "\U0001F1ED\U0001F1FA Vengriya",
-    "\U0001F1F7\U0001F1F4 Ruminiya",
-    "\U0001F1E8\U0001F1FE Kipr"
+    "Rossiya",
+    "Korea",
+    "Turkiya",
+    "BAA (Dubai)",
+    "Saudiya Arabistoni",
+    "Qozogiston",
+    "Germaniya",
+    "Polsha",
+    "Chexiya",
+    "Vengriya",
+    "Ruminiya",
+    "Kipr"
 ]
 
 def main_menu(user_id):

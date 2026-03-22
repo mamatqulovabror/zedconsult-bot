@@ -168,7 +168,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clear(user_id)
         return
 
-    if text == "U0001F4BC Ishga topshirish":
+    if text == "Ishga topshirish":
         clear(user_id)
         users[user_id]["step"] = "work_country"
         keyboard = [[c] for c in WORK_COUNTRIES]

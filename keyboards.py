@@ -3,40 +3,40 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton
 from texts import t
 
 COUNTRIES = [
-    "U0001F1E6U0001F1FA Avstraliya",
-    "U0001F1E6U0001F1EA Birlashgan Arab Amirliklari",
-    "U0001F1ECU0001F1E7 Buyuk Britaniya",
-    "U0001F1E8U0001F1E6 Kanada",
-    "U0001F1E8U0001F1F3 Xitoy",
-    "U0001F1E9U0001F1EA Germaniya",
-    "U0001F1EDU0001F1FA Vengriya",
-    "U0001F1EEU0001F1F9 Italiya",
-    "U0001F1EFU0001F1F5 Yaponiya",
-    "U0001F1F0U0001F1F7 Korea",
-    "U0001F1F1U0001F1FB Latviya",
-    "U0001F1F2U0001F1FE Malaysiya",
-    "U0001F1F5U0001F1F1 Polsha",
-    "U0001F1F6U0001F1E6 Qatar",
-    "U0001F1F8U0001F1E6 Saudiya Arabistoni",
-    "U0001F1F8U0001F1EC Singapur",
-    "U0001F1FAU0001F1F8 USA"
+    "\U0001F1E6\U0001F1FA Avstraliya",
+    "\U0001F1E6\U0001F1EA Birlashgan Arab Amirliklari",
+    "\U0001F1EC\U0001F1E7 Buyuk Britaniya",
+    "\U0001F1E8\U0001F1E6 Kanada",
+    "\U0001F1E8\U0001F1F3 Xitoy",
+    "\U0001F1E9\U0001F1EA Germaniya",
+    "\U0001F1ED\U0001F1FA Vengriya",
+    "\U0001F1EE\U0001F1F9 Italiya",
+    "\U0001F1EF\U0001F1F5 Yaponiya",
+    "\U0001F1F0\U0001F1F7 Korea",
+    "\U0001F1F1\U0001F1FB Latviya",
+    "\U0001F1F2\U0001F1FE Malaysiya",
+    "\U0001F1F5\U0001F1F1 Polsha",
+    "\U0001F1F6\U0001F1E6 Qatar",
+    "\U0001F1F8\U0001F1E6 Saudiya Arabistoni",
+    "\U0001F1F8\U0001F1EC Singapur",
+    "\U0001F1FA\U0001F1F8 USA"
 ]
 
 DEGREE_LEVELS = ["Bakalavrga topshirish", "Magistraturaga topshirish", "Doktorantura"]
 
 WORK_COUNTRIES = [
-    "U0001F1F7U0001F1FA Rossiya",
-    "U0001F1F0U0001F1F7 Korea",
-    "U0001F1F9U0001F1F7 Turkiya",
-    "U0001F1E6U0001F1EA BAA (Dubai)",
-    "U0001F1F8U0001F1E6 Saudiya Arabistoni",
-    "U0001F1F0U0001F1FF Qozogiston",
-    "U0001F1E9U0001F1EA Germaniya",
-    "U0001F1F5U0001F1F1 Polsha",
-    "U0001F1E8U0001F1FF Chexiya",
-    "U0001F1EDU0001F1FA Vengriya",
-    "U0001F1F7U0001F1F4 Ruminiya",
-    "U0001F1E8U0001F1FE Kipr"
+    "\U0001F1F7\U0001F1FA Rossiya",
+    "\U0001F1F0\U0001F1F7 Korea",
+    "\U0001F1F9\U0001F1F7 Turkiya",
+    "\U0001F1E6\U0001F1EA BAA (Dubai)",
+    "\U0001F1F8\U0001F1E6 Saudiya Arabistoni",
+    "\U0001F1F0\U0001F1FF Qozogiston",
+    "\U0001F1E9\U0001F1EA Germaniya",
+    "\U0001F1F5\U0001F1F1 Polsha",
+    "\U0001F1E8\U0001F1FF Chexiya",
+    "\U0001F1ED\U0001F1FA Vengriya",
+    "\U0001F1F7\U0001F1F4 Ruminiya",
+    "\U0001F1E8\U0001F1FE Kipr"
 ]
 
 def main_menu(user_id):
@@ -75,7 +75,7 @@ def phone_keyboard(user_id):
 
 def language_keyboard():
     keyboard = [
-        ["U0001F1FAU0001F1FF O'zbek"],
-        ["U0001F1ECU0001F1E7 English"]
+        ["\U0001F1FA\U0001F1FF O'zbek"],
+        ["\U0001F1EC\U0001F1E7 English"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

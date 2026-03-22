@@ -1,6 +1,6 @@
 import json
 import os
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 from config import ADMIN_ID
 
@@ -18,6 +18,131 @@ def save_sections(db):
 
 def is_admin(user_id):
     return user_id == ADMIN_ID
+
+def get_section_names():
+    db = load_sections()
+    return list(db.keys())
+
+async def handle_sections_message(update: Update, context) -> bool:
+    from data import users
+    user_id = update.effective_user.id
+    text = update.message.text or ""
+    db = load_sections()
+    state = users.get(user_id, {})
+    sec_step = state.get("sec_step")
+
+    # Check if text matches a section name (from main menu)
+    if sec_step is None:
+        if text in db:
+            users[user_id]["sec_step"] = "country"
+            users[user_id]["sec_section"] = text
+            countries = list(db[text].keys())
+            if not countries:
+                await update.message.reply_text("Bu bolimda davlatlar yoq.")
+                users[user_id].pop("sec_step", None)
+                users[user_id].pop("sec_section", None)
+                return True
+            keyboard = [[c] for c in countries]
+            keyboard.append(["Orqaga"])
+            await update.message.reply_text("Davlatni tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            return True
+        return False
+
+    section = state.get("sec_section", "")
+
+    if text in ("Orqaga", "Back", "Asosiy", "Main"):
+        # Go back based on current step
+        if sec_step == "country":
+            users[user_id].pop("sec_step", None)
+            users[user_id].pop("sec_section", None)
+            from keyboards import main_menu
+            from texts import t
+            await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+            return True
+        elif sec_step == "category":
+            users[user_id]["sec_step"] = "country"
+            users[user_id].pop("sec_country", None)
+            countries = list(db.get(section, {}).keys())
+            keyboard = [[c] for c in countries]
+            keyboard.append(["Orqaga"])
+            await update.message.reply_text("Davlatni tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            return True
+        elif sec_step == "type":
+            users[user_id]["sec_step"] = "category"
+            users[user_id].pop("sec_category", None)
+            country = state.get("sec_country", "")
+            categories = list(db.get(section, {}).get(country, {}).keys())
+            keyboard = [[c] for c in categories]
+            keyboard.append(["Orqaga"])
+            await update.message.reply_text("Kategoriyani tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            return True
+        elif sec_step == "video":
+            users[user_id]["sec_step"] = "type"
+            users[user_id].pop("sec_type", None)
+            country = state.get("sec_country", "")
+            category = state.get("sec_category", "")
+            types = list(db.get(section, {}).get(country, {}).get(category, {}).keys())
+            keyboard = [[tp] for tp in types]
+            keyboard.append(["Orqaga"])
+            await update.message.reply_text("Turni tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            return True
+        return False
+
+    if sec_step == "country":
+        countries = list(db.get(section, {}).keys())
+        if text not in countries:
+            await update.message.reply_text("Royxatdan tanlang.")
+            return True
+        users[user_id]["sec_country"] = text
+        users[user_id]["sec_step"] = "category"
+        categories = list(db[section][text].keys())
+        if not categories:
+            await update.message.reply_text("Bu davlatda kategoriyalar yoq.")
+            users[user_id]["sec_step"] = "country"
+            return True
+        keyboard = [[c] for c in categories]
+        keyboard.append(["Orqaga"])
+        await update.message.reply_text("Kategoriyani tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+        return True
+
+    if sec_step == "category":
+        country = state.get("sec_country", "")
+        categories = list(db.get(section, {}).get(country, {}).keys())
+        if text not in categories:
+            await update.message.reply_text("Royxatdan tanlang.")
+            return True
+        users[user_id]["sec_category"] = text
+        users[user_id]["sec_step"] = "type"
+        types = list(db[section][country][text].keys())
+        if not types:
+            await update.message.reply_text("Bu kategoriyada turlar yoq.")
+            users[user_id]["sec_step"] = "category"
+            return True
+        keyboard = [[tp] for tp in types]
+        keyboard.append(["Orqaga"])
+        await update.message.reply_text("Turni tanlang:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+        return True
+
+    if sec_step == "type":
+        country = state.get("sec_country", "")
+        category = state.get("sec_category", "")
+        types = list(db.get(section, {}).get(country, {}).get(category, {}).keys())
+        if text not in types:
+            await update.message.reply_text("Royxatdan tanlang.")
+            return True
+        users[user_id]["sec_type"] = text
+        file_id = db[section][country][category][text]
+        from keyboards import back_menu
+        keyboard = back_menu(user_id)
+        if file_id:
+            await context.bot.send_video(chat_id=update.effective_chat.id, video=file_id, caption=section + " - " + country + " - " + category + " - " + text, reply_markup=keyboard)
+        else:
+            await update.message.reply_text("Bu uchun video tez orada qoshiladi.", reply_markup=keyboard)
+        for k in ("sec_step", "sec_section", "sec_country", "sec_category", "sec_type"):
+            users[user_id].pop(k, None)
+        return True
+
+    return False
 
 async def addsection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):

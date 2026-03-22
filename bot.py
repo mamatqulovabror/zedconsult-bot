@@ -14,6 +14,7 @@ from videos import get_video
 from admin.panel import admin_help, admin_stats, admin_users, admin_bookings
 from admin.broadcast import admin_broadcast, admin_send_user
 from admin.video import setvideo, listvideo, handle_admin_video_text, handle_admin_video_file
+from admin.sections import addsection, delsection, addcountry, delcountry, addcategory, delcategory, addtype, deltype, svideo, handle_svideo_file, listall
 
 booked_slots = {}
 
@@ -323,6 +324,17 @@ app.add_handler(CommandHandler("listvideo", listvideo))
 app.add_handler(MessageHandler(filters.CONTACT, contact))
 app.add_handler(MessageHandler(filters.PHOTO, photo))
 app.add_handler(MessageHandler(filters.VIDEO, handle_admin_video_file))
+app.add_handler(CommandHandler("addsection", addsection))
+app.add_handler(CommandHandler("delsection", delsection))
+app.add_handler(CommandHandler("addcountry", addcountry))
+app.add_handler(CommandHandler("delcountry", delcountry))
+app.add_handler(CommandHandler("addcategory", addcategory))
+app.add_handler(CommandHandler("delcategory", delcategory))
+app.add_handler(CommandHandler("addtype", addtype))
+app.add_handler(CommandHandler("deltype", deltype))
+app.add_handler(CommandHandler("svideo", svideo))
+app.add_handler(CommandHandler("listall", listall))
+app.add_handler(MessageHandler(filters.VIDEO & filters.User(ADMIN_ID), handle_svideo_file))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 print("Consulto bot ishlayapti...")

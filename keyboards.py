@@ -2,12 +2,23 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton
 from texts import t
 
 COUNTRIES = [
-    "Avstraliya", "Birlashgan Arab Amirliklari",
-    "Buyuk Britaniya", "Kanada", "Xitoy",
-    "Germaniya", "Vengriya", "Italiya",
-    "Yaponiya", "Korea", "Latviya",
-    "Malaysiya", "Polsha", "Qatar",
-    "Saudiya Arabistoni", "Singapur", "USA"
+    "🇦🇺 Avstraliya",
+    "🇦🇪 Birlashgan Arab Amirliklari",
+    "🇬🇧 Buyuk Britaniya",
+    "🇨🇦 Kanada",
+    "🇨🇳 Xitoy",
+    "🇩🇪 Germaniya",
+    "🇭🇺 Vengriya",
+    "🇮🇹 Italiya",
+    "🇯🇵 Yaponiya",
+    "🇰🇷 Korea",
+    "🇱🇻 Latviya",
+    "🇲🇾 Malaysiya",
+    "🇵🇱 Polsha",
+    "🇶🇦 Qatar",
+    "🇸🇦 Saudiya Arabistoni",
+    "🇸🇬 Singapur",
+    "🇺🇸 USA"
 ]
 
 DEGREE_LEVELS = ["Bakalavrga topshirish", "Magistraturaga topshirish", "Doktorantura"]
@@ -47,7 +58,7 @@ def phone_keyboard(user_id):
 
 def language_keyboard():
     keyboard = [
-        ["O'zbek"],
-        ["English"]
+        ["🇺🇿 O'zbek"],
+        ["🇬🇧 English"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

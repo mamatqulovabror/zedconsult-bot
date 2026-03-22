@@ -2,33 +2,29 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton
 from texts import t
 
 COUNTRIES = [
-        "ð¦ðº Avstraliya", "ð¦ðª Birlashgan Arab Amirliklari",
-        "ð¬ð§ Buyuk Britaniya", "ð¨ð¦ Kanada", "ð¨ð³ Xitoy",
-        "ð©ðª Germaniya", "ð­ðº Vengriya", "ð®ð¹ Italiya",
-        "ð¯ðµ Yaponiya", "ð°ð· Korea", "ð±ð» Latviya",
-        "ð²ð¾ Malaysiya", "ðµð± Polsha", "ð¶ð¦ Qatar",
-        "ð¸ð¦ Saudiya Arabistoni", "ð¸ð¬ Singapur", "ðºð¸ USA",
+        "Ã°ÂÂÂ¦Ã°ÂÂÂº Avstraliya", "Ã°ÂÂÂ¦Ã°ÂÂÂª Birlashgan Arab Amirliklari",
+        "Ã°ÂÂÂ¬Ã°ÂÂÂ§ Buyuk Britaniya", "Ã°ÂÂÂ¨Ã°ÂÂÂ¦ Kanada", "Ã°ÂÂÂ¨Ã°ÂÂÂ³ Xitoy",
+        "Ã°ÂÂÂ©Ã°ÂÂÂª Germaniya", "Ã°ÂÂÂ­Ã°ÂÂÂº Vengriya", "Ã°ÂÂÂ®Ã°ÂÂÂ¹ Italiya",
+        "Ã°ÂÂÂ¯Ã°ÂÂÂµ Yaponiya", "Ã°ÂÂÂ°Ã°ÂÂÂ· Korea", "Ã°ÂÂÂ±Ã°ÂÂÂ» Latviya",
+        "Ã°ÂÂÂ²Ã°ÂÂÂ¾ Malaysiya", "Ã°ÂÂÂµÃ°ÂÂÂ± Polsha", "Ã°ÂÂÂ¶Ã°ÂÂÂ¦ Qatar",
+        "Ã°ÂÂÂ¸Ã°ÂÂÂ¦ Saudiya Arabistoni", "Ã°ÂÂÂ¸Ã°ÂÂÂ¬ Singapur", "Ã°ÂÂÂºÃ°ÂÂÂ¸ USA",
 ]
 
 DEGREE_LEVELS = [
-        "ð Bakalavrga topshirish",
-        "ð Magistraturaga topshirish",
-        "ð¬ Doktorantura",
+        "Ã°ÂÂÂ Bakalavrga topshirish",
+        "Ã°ÂÂÂ Magistraturaga topshirish",
+        "Ã°ÂÂÂ¬ Doktorantura",
 ]
 
 
 def main_menu(user_id):
-        from admin.sections import get_section_names
-        sections = get_section_names()
         keyboard = [
                     [t(user_id, "btn_university")],
                     [t(user_id, "btn_visa")],
                     [t(user_id, "btn_consult")],
+                    [t(user_id, "btn_about"), t(user_id, "btn_admin")],
+                    [t(user_id, "btn_lang")],
         ]
-        for sec in sections:
-            keyboard.append([sec])
-        keyboard.append([t(user_id, "btn_about"), t(user_id, "btn_admin")])
-        keyboard.append([t(user_id, "btn_lang")])
         return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
@@ -58,5 +54,5 @@ def phone_keyboard(user_id):
 
 
 def language_keyboard():
-        keyboard = [["ðºð¿ O'zbek", "ð¬ð§ English"]]
+        keyboard = [["Ã°ÂÂÂºÃ°ÂÂÂ¿ O'zbek", "Ã°ÂÂÂ¬Ã°ÂÂÂ§ English"]]
         return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

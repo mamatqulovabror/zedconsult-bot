@@ -1,24 +1,25 @@
+# -*- coding: utf-8 -*-
 from telegram import ReplyKeyboardMarkup, KeyboardButton
 from texts import t
 
 COUNTRIES = [
-    "🇦🇺 Avstraliya",
-    "🇦🇪 Birlashgan Arab Amirliklari",
-    "🇬🇧 Buyuk Britaniya",
-    "🇨🇦 Kanada",
-    "🇨🇳 Xitoy",
-    "🇩🇪 Germaniya",
-    "🇭🇺 Vengriya",
-    "🇮🇹 Italiya",
-    "🇯🇵 Yaponiya",
-    "🇰🇷 Korea",
-    "🇱🇻 Latviya",
-    "🇲🇾 Malaysiya",
-    "🇵🇱 Polsha",
-    "🇶🇦 Qatar",
-    "🇸🇦 Saudiya Arabistoni",
-    "🇸🇬 Singapur",
-    "🇺🇸 USA"
+    "\U0001F1E6\U0001F1FA Avstraliya",
+    "\U0001F1E6\U0001F1EA Birlashgan Arab Amirliklari",
+    "\U0001F1EC\U0001F1E7 Buyuk Britaniya",
+    "\U0001F1E8\U0001F1E6 Kanada",
+    "\U0001F1E8\U0001F1F3 Xitoy",
+    "\U0001F1E9\U0001F1EA Germaniya",
+    "\U0001F1ED\U0001F1FA Vengriya",
+    "\U0001F1EE\U0001F1F9 Italiya",
+    "\U0001F1EF\U0001F1F5 Yaponiya",
+    "\U0001F1F0\U0001F1F7 Korea",
+    "\U0001F1F1\U0001F1FB Latviya",
+    "\U0001F1F2\U0001F1FE Malaysiya",
+    "\U0001F1F5\U0001F1F1 Polsha",
+    "\U0001F1F6\U0001F1E6 Qatar",
+    "\U0001F1F8\U0001F1E6 Saudiya Arabistoni",
+    "\U0001F1F8\U0001F1EC Singapur",
+    "\U0001F1FA\U0001F1F8 USA"
 ]
 
 DEGREE_LEVELS = ["Bakalavrga topshirish", "Magistraturaga topshirish", "Doktorantura"]
@@ -58,7 +59,7 @@ def phone_keyboard(user_id):
 
 def language_keyboard():
     keyboard = [
-        ["🇺🇿 O'zbek"],
-        ["🇬🇧 English"]
+        ["\U0001F1FA\U0001F1FF O'zbek"],
+        ["\U0001F1EC\U0001F1E7 English"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from telegram import ReplyKeyboardMarkup, KeyboardButton
+from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton
 from texts import t
+import tree as T
 
 COUNTRIES = [
     "\U0001F1E6\U0001F1FA Avstraliya",
@@ -39,43 +40,66 @@ WORK_COUNTRIES = [
     "\U0001F1E8\U0001F1FE Kipr"
 ]
 
+
 def main_menu(user_id):
-    keyboard = [
-        [t(user_id, "btn_university")],
-        [t(user_id, "btn_visa")],
-        ["Ishga topshirish"],
-        [t(user_id, "btn_consult")],
-        [t(user_id, "btn_about"), t(user_id, "btn_admin")],
-        [t(user_id, "btn_lang")],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    rows = []
+    tree = T.load_tree()
+    roots = T.get_children(tree, None)
+    for r in roots:
+        rows.append([r["name"]])
+    rows.append([t(user_id, "btn_consult")])
+    rows.append([t(user_id, "btn_about"), t(user_id, "btn_admin")])
+    rows.append([t(user_id, "btn_lang")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
 
 def back_menu(user_id):
-    keyboard = [
-        [t(user_id, "back"), t(user_id, "main")]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    return ReplyKeyboardMarkup(
+        [[t(user_id, "back"), t(user_id, "main")]],
+        resize_keyboard=True
+    )
+
+
+def phone_keyboard(user_id):
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton(t(user_id, "btn_phone"), request_contact=True)],
+            [t(user_id, "back"), t(user_id, "main")]
+        ],
+        resize_keyboard=True
+    )
+
+
+def language_keyboard():
+    return ReplyKeyboardMarkup(
+        [["\U0001F1FA\U0001F1FF O'zbek"], ["\U0001F1EC\U0001F1E7 English"]],
+        resize_keyboard=True
+    )
+
+
+def user_section_kb(node_id):
+    tree = T.load_tree()
+    children = T.get_children(tree, node_id)
+    rows = []
+    for ch in children:
+        rows.append([InlineKeyboardButton(ch["name"], callback_data=f"us:open:{ch['id']}")])
+    if node_id is not None:
+        node = tree["nodes"].get(node_id)
+        parent_id = node.get("parent_id") if node else None
+        if parent_id is None:
+            rows.append([InlineKeyboardButton("🔙 Asosiy menyu", callback_data="us:home")])
+        else:
+            rows.append([InlineKeyboardButton("🔙 Orqaga", callback_data=f"us:open:{parent_id}")])
+    return InlineKeyboardMarkup(rows) if rows else None
+
 
 def country_keyboard(user_id):
     keyboard = [[c] for c in COUNTRIES]
     keyboard.append([t(user_id, "back"), t(user_id, "main")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+
 def degree_keyboard(user_id):
     keyboard = [[d] for d in DEGREE_LEVELS]
     keyboard.append([t(user_id, "back"), t(user_id, "main")])
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def phone_keyboard(user_id):
-    keyboard = [
-        [KeyboardButton(t(user_id, "btn_phone"), request_contact=True)],
-        [t(user_id, "back"), t(user_id, "main")]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def language_keyboard():
-    keyboard = [
-        ["\U0001F1FA\U0001F1FF O'zbek"],
-        ["\U0001F1EC\U0001F1E7 English"]
-    ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

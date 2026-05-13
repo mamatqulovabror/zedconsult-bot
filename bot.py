@@ -15,9 +15,12 @@ from admin.panel import admin_help, admin_stats, admin_users, admin_bookings
 from admin.broadcast import admin_broadcast, admin_send_user
 from admin.video import setvideo, listvideo, handle_admin_video_text, handle_admin_video_file
 from admin.sections import addsection, delsection, addcountry, delcountry, addcategory, delcategory, addtype, deltype, svideo, handle_svideo_file, listall
-
-booked_slots = {}
-
+from admin.inline_panel import (
+    open_admin_panel, admin_callback, handle_text_input, 
+    handle_photo_input, handle_video_input
+)
+from admins_db import is_admin
+import tree as T
 DEGREE_MAP = {
     "Bakalavrga topshirish": "bakalavr",
     "Magistraturaga topshirish": "magistr",

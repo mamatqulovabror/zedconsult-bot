@@ -46,6 +46,100 @@ def step(user_id):
 def clear(user_id):
     users[user_id].clear()
 
+async def send_section_content(update, context, node_id):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    tree = T.load_tree()
+    node = tree["nodes"].get(node_id)
+    if not node:
+        return
+    
+    # Send content
+    content = node.get("content", [])
+    for item in content:
+        if item["type"] == "text":
+            await context.bot.send_message(
+                update.effective_chat.id,
+                item["value"]
+            )
+        elif item["type"] == "photo":
+            await context.bot.send_photo(
+                update.effective_chat.id,
+                item["file_id"],
+                caption=item.get("caption", "")
+            )
+        elif item["type"] == "video":
+            await context.bot.send_video(
+                update.effective_chat.id,
+                item["file_id"],
+                caption=item.get("caption", "")
+            )
+    
+    # Show children or back button
+    children = T.get_children(tree, node_id)
+    if children:
+        buttons = []
+        for ch in children:
+            buttons.append([InlineKeyboardButton(ch["name"], callback_data=f"us:open:{ch['id']}")])
+        
+        parent_id = node.get("parent_id")
+        if parent_id is None:
+            buttons.append([InlineKeyboardButton("🔙 Asosiy menyu", callback_data="us:home")])
+        else:
+            buttons.append([InlineKeyboardButton("🔙 Orqaga", callback_data=f"us:open:{parent_id}")])
+        
+        await context.bot.send_message(
+            update.effective_chat.id,
+            "Tanlang:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    else:
+        # Leaf node - just show back button
+        parent_id = node.get("parent_id")
+        buttons = []
+        if parent_id is None:
+            buttons.append([InlineKeyboardButton("🔙 Asosiy menyu", callback_data="us:home")])
+        else:
+            buttons.append([InlineKeyboardButton("🔙 Orqaga", callback_data=f"us:open:{parent_id}")])
+        
+        await context.bot.send_message(
+            update.effective_chat.id,
+            "✅",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+
+async def user_section_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    
+    if not data.startswith("us:"):
+        return
+    
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    
+    if action == "home":
+        user_id = query.from_user.id
+        await query.message.delete()
+        await context.bot.send_message(
+            query.message.chat.id,
+            t(user_id, "main_menu"),
+            reply_markup=main_menu(user_id)
+        )
+        return
+    
+    if action == "open":
+        node_id = parts[2] if len(parts) > 2 else None
+        await query.message.delete()
+        
+        # Create a fake update for send_section_content
+        class FakeUpdate:
+            def __init__(self, chat_id):
+                self.effective_chat = type('obj', (object,), {'id': chat_id})
+        
+        fake_update = FakeUpdate(query.message.chat.id)
+        await send_section_content(fake_update, context, node_id)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_user(update.effective_user)

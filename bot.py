@@ -21,6 +21,9 @@ from admin.inline_panel import (
 )
 from admins_db import is_admin
 import tree as T
+
+booked_slots = {}
+
 DEGREE_MAP = {
     "Bakalavrga topshirish": "bakalavr",
     "Magistraturaga topshirish": "magistr",
@@ -45,6 +48,7 @@ def step(user_id):
 
 def clear(user_id):
     users[user_id].clear()
+
 
 async def send_section_content(update, context, node_id):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -141,7 +145,11 @@ async def user_section_callback(update: Update, context: ContextTypes.DEFAULT_TY
         fake_update = FakeUpdate(query.message.chat.id)
         await send_section_content(fake_update, context, node_id)
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Run migration once
+    T.migrate_from_old()
+    
     register_user(update.effective_user)
     user_id = update.effective_user.id
     if user_id not in users:
@@ -161,6 +169,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_user(update.effective_user)
     if user_id not in users:
         users[user_id] = {}
+
+    # Admin panel text inputs
+    if await handle_text_input(update, context):
+        return
 
     if await handle_admin_video_text(update, context):
         return
@@ -194,8 +206,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == t(user_id, "btn_admin"):
+        if is_admin(user_id):
+            await open_admin_panel(update, context)
+            return
         await update.message.reply_text(t(user_id, "admin_contact"), reply_markup=back_menu(user_id), parse_mode="Markdown")
         return
+
+    # Tree-based sections navigation
+    tree = T.load_tree()
+    roots = T.get_children(tree, None)
+    root_names = [r["name"] for r in roots]
+    if text in root_names:
+        node = next((r for r in roots if r["name"] == text), None)
+        if node:
+            await send_section_content(update, context, node["id"])
+            return
 
     if text == t(user_id, "btn_university"):
         clear(user_id)
@@ -357,6 +382,11 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     register_user(update.effective_user)
+    
+    # Admin panel photo inputs
+    if await handle_photo_input(update, context):
+        return
+    
     if users.get(user_id, {}).get("step") != "payment":
         return
     name = users[user_id].get("name", "-")
@@ -431,6 +461,7 @@ async def schedule_reminder(context, user_id, date, slot):
 
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("panel", open_admin_panel))
 app.add_handler(CommandHandler("confirm", confirm))
 app.add_handler(CommandHandler("reject", reject))
 app.add_handler(CommandHandler("admin", admin_help))
@@ -453,8 +484,23 @@ app.add_handler(CommandHandler("addtype", addtype))
 app.add_handler(CommandHandler("deltype", deltype))
 app.add_handler(CommandHandler("svideo", svideo))
 app.add_handler(CommandHandler("listall", listall))
-app.add_handler(MessageHandler(filters.VIDEO & filters.User(ADMIN_ID), handle_svideo_file))
-app.add_handler(MessageHandler(filters.VIDEO, handle_admin_video_file))
+
+# Callback handlers
+from telegram.ext import CallbackQueryHandler
+app.add_handler(CallbackQueryHandler(admin_callback, pattern="^ap:"))
+app.add_handler(CallbackQueryHandler(user_section_callback, pattern="^us:"))
+
+# Video handlers - admin must come before general
+async def video_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if await handle_video_input(update, context):
+        return
+    if user_id == ADMIN_ID:
+        await handle_svideo_file(update, context)
+        return
+    await handle_admin_video_file(update, context)
+
+app.add_handler(MessageHandler(filters.VIDEO, video_handler))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 print("Consulto bot ishlayapti...")

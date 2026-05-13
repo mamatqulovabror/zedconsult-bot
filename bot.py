@@ -5,7 +5,7 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     filters, ContextTypes
 )
-from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES
+from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES, SUPER_ADMIN_ID
 from data import users, user_db, bookings_db, register_user, get_lang, save_booking, delete_booking
 from texts import t
 from keyboards import main_menu, back_menu, country_keyboard, degree_keyboard, phone_keyboard, language_keyboard, COUNTRIES, DEGREE_LEVELS, WORK_COUNTRIES

@@ -19,10 +19,10 @@ from subscriptions import activate_premium, activate_course, is_premium, has_cou
 from group_links import get_country_link, get_all_links
 from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content
 
-# Admin panel
-from admin.inline_panel import (
-    open_admin_panel, admin_callback, handle_text_input, 
-    handle_photo_input, handle_video_input
+# Admin panel (new ReplyKeyboard based)
+from admin_panel import (
+    open_admin_panel, handle_admin_message, is_in_admin_panel,
+    handle_approve_command, handle_reject_command
 )
 
 booked_slots = {}
@@ -75,9 +75,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users:
         users[user_id] = {}
 
-    # Admin panel text inputs
-    if await handle_text_input(update, context):
-        return
+    # Admin panel - if user is in admin panel, route to it
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
 
     # Language selection
     if step(user_id) == "lang":
@@ -528,8 +529,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_user(update.effective_user)
     
     # Admin panel photo inputs
-    if await handle_photo_input(update, context):
-        return
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
     
     # Payment screenshot
     if step(user_id) == "payment_screenshot":
@@ -638,8 +640,9 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     # Admin panel video inputs
-    if await handle_video_input(update, context):
-        return
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
 
 
 async def schedule_reminder(context, user_id, date, slot):
@@ -801,13 +804,12 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("panel", open_admin_panel))
 
-# Admin approve/reject with pattern matching
+# Admin approve/reject with pattern matching - use new admin_panel handlers
 from telegram.ext import MessageHandler, filters as Filters
-app.add_handler(MessageHandler(Filters.Regex(r'^/approve_pay_\d+$'), handle_admin_approve))
-app.add_handler(MessageHandler(Filters.Regex(r'^/reject_pay_\d+$'), handle_admin_reject))
+app.add_handler(MessageHandler(Filters.Regex(r'^/approve_pay_\d+$'), handle_approve_command))
+app.add_handler(MessageHandler(Filters.Regex(r'^/reject_pay_\d+$'), handle_reject_command))
 
-# Callbacks
-app.add_handler(CallbackQueryHandler(admin_callback, pattern="^ap:"))
+# Inline callbacks (for course buy buttons)
 app.add_handler(CallbackQueryHandler(handle_callback))
 
 # Messages

@@ -5,14 +5,22 @@ from texts import t
 
 def main_menu(user_id):
     """Main menu for users"""
+    from admins_db import is_super_admin
+    
     rows = [
         [t(user_id, "btn_university"), t(user_id, "btn_visa")],
         [t(user_id, "btn_work")],
         [t(user_id, "btn_premium"), t(user_id, "btn_consult")],
         [t(user_id, "btn_my_courses")],
-        [t(user_id, "btn_about"), t(user_id, "btn_admin")],
-        [t(user_id, "btn_lang")]
+        [t(user_id, "btn_about")],
     ]
+    
+    # Show "Bot boshqaruvi" only for super admin
+    if is_super_admin(user_id):
+        rows.append([t(user_id, "btn_bot_panel")])
+    
+    rows.append([t(user_id, "btn_lang")])
+    
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 

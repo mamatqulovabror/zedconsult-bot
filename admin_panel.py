@@ -1,0 +1,1029 @@
+# -*- coding: utf-8 -*-
+"""
+Admin panel using ReplyKeyboard buttons (not inline)
+Faqat super admin uchun
+"""
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ContextTypes
+from admins_db import is_admin, is_super_admin, get_all_admins, add_admin, remove_admin
+from config import SUPER_ADMIN_ID
+from data import user_db, bookings_db
+from payments import get_pending_payments, get_payment_stats, get_payment, approve_payment, reject_payment
+from subscriptions import get_subscription_stats, activate_premium, activate_course
+from group_links import get_all_links, set_country_link, delete_country_link, get_country_link
+from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course
+
+# Admin panel state per user
+admin_state = {}
+
+# ============ BUTTON LABELS ============
+BTN_PAYMENTS = "💳 To'lovlar"
+BTN_COURSES = "📚 Kurslar"
+BTN_GROUPS = "🔗 Guruh linklar"
+BTN_STATS = "📊 Statistika"
+BTN_USERS = "👥 Userlar"
+BTN_BOOKINGS = "📋 Bronlar"
+BTN_ADMINS = "👮 Adminlar"
+BTN_BROADCAST = "📢 Broadcast"
+BTN_SEND_USER = "💬 Userga xabar"
+BTN_EXIT = "🚪 Chiqish"
+BTN_BACK = "🔙 Orqaga"
+
+# Payment submenu
+BTN_PAY_PENDING = "⏳ Kutayotgan to'lovlar"
+BTN_PAY_APPROVED = "✅ Tasdiqlangan"
+BTN_PAY_STATS = "📊 To'lov statistikasi"
+
+# Courses submenu
+BTN_COURSE_UNI = "🎓 Universitet"
+BTN_COURSE_VISA = "✈️ Viza"
+BTN_COURSE_WORK = "💼 Ishga topshirish"
+
+# Course levels
+BTN_LEVEL_BAKALAVR = "Bakalavr"
+BTN_LEVEL_MAGISTR = "Magistr"
+BTN_LEVEL_DOKTOR = "Doktorantura"
+
+# Content actions
+BTN_ADD_COUNTRY = "➕ Yangi davlat qo'shish"
+BTN_ADD_DEMO_VIDEO = "🎥 Demo video qo'shish"
+BTN_ADD_DEMO_TEXT = "📝 Demo text qo'shish"
+BTN_ADD_DEMO_PHOTO = "🖼 Demo rasm qo'shish"
+BTN_ADD_FULL_VIDEO = "🎥 To'liq video qo'shish"
+BTN_ADD_FULL_TEXT = "📝 To'liq text qo'shish"
+BTN_ADD_FULL_PHOTO = "🖼 To'liq rasm qo'shish"
+
+# Groups submenu
+BTN_ADD_GROUP = "➕ Yangi guruh qo'shish"
+
+# Admins submenu
+BTN_ADD_ADMIN = "➕ Admin qo'shish"
+
+# Cancel
+BTN_CANCEL = "❌ Bekor qilish"
+
+
+# ============ STATE MANAGEMENT ============
+def get_state(user_id):
+    return admin_state.get(user_id, {})
+
+
+def set_state(user_id, **kwargs):
+    if user_id not in admin_state:
+        admin_state[user_id] = {}
+    admin_state[user_id].update(kwargs)
+
+
+def clear_state(user_id):
+    admin_state.pop(user_id, None)
+
+
+def is_in_admin_panel(user_id):
+    return user_id in admin_state and admin_state[user_id].get("in_panel")
+
+
+# ============ KEYBOARDS ============
+def main_admin_kb():
+    """Main admin panel keyboard"""
+    return ReplyKeyboardMarkup([
+        [BTN_PAYMENTS, BTN_COURSES],
+        [BTN_GROUPS, BTN_STATS],
+        [BTN_USERS, BTN_BOOKINGS],
+        [BTN_ADMINS, BTN_BROADCAST],
+        [BTN_SEND_USER],
+        [BTN_EXIT]
+    ], resize_keyboard=True)
+
+
+def payments_kb():
+    """Payments submenu"""
+    return ReplyKeyboardMarkup([
+        [BTN_PAY_PENDING],
+        [BTN_PAY_APPROVED, BTN_PAY_STATS],
+        [BTN_BACK]
+    ], resize_keyboard=True)
+
+
+def courses_kb():
+    """Courses sections"""
+    return ReplyKeyboardMarkup([
+        [BTN_COURSE_UNI],
+        [BTN_COURSE_VISA],
+        [BTN_COURSE_WORK],
+        [BTN_BACK]
+    ], resize_keyboard=True)
+
+
+def levels_kb(section):
+    """Course levels for a section"""
+    levels = get_levels(section)
+    rows = []
+    for level_key, level in levels.items():
+        rows.append([level["name"]])
+    rows.append([BTN_BACK])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+
+def countries_kb(section, level):
+    """Countries in section/level"""
+    countries = get_countries(section, level)
+    rows = []
+    for country_key, country in countries.items():
+        rows.append([country["name"]])
+    rows.append([BTN_ADD_COUNTRY])
+    rows.append([BTN_BACK])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+
+def country_content_kb():
+    """Content management for a country"""
+    return ReplyKeyboardMarkup([
+        [BTN_ADD_DEMO_VIDEO, BTN_ADD_DEMO_TEXT],
+        [BTN_ADD_DEMO_PHOTO],
+        [BTN_ADD_FULL_VIDEO, BTN_ADD_FULL_TEXT],
+        [BTN_ADD_FULL_PHOTO],
+        [BTN_BACK]
+    ], resize_keyboard=True)
+
+
+def groups_kb():
+    """Groups management"""
+    links = get_all_links()
+    rows = []
+    for country in links.keys():
+        rows.append([country])
+    rows.append([BTN_ADD_GROUP])
+    rows.append([BTN_BACK])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+
+def admins_kb():
+    """Admins management"""
+    admins = get_all_admins()
+    rows = []
+    for aid in admins:
+        marker = "⭐️" if aid == SUPER_ADMIN_ID else "👤"
+        rows.append([f"{marker} {aid}"])
+    rows.append([BTN_ADD_ADMIN])
+    rows.append([BTN_BACK])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+
+def cancel_kb():
+    """Just cancel button"""
+    return ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+
+
+def back_kb():
+    """Just back button"""
+    return ReplyKeyboardMarkup([[BTN_BACK]], resize_keyboard=True)
+
+
+# ============ ENTRY POINT ============
+async def open_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Open admin panel - main entry"""
+    user_id = update.effective_user.id
+    
+    if not is_super_admin(user_id):
+        await update.message.reply_text("❌ Ruxsat yo'q")
+        return
+    
+    set_state(user_id, in_panel=True, screen="main")
+    
+    await update.message.reply_text(
+        "⚙️ *ADMIN PANEL*\n\nBo'limni tanlang:",
+        reply_markup=main_admin_kb(),
+        parse_mode="Markdown"
+    )
+
+
+async def exit_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Exit admin panel"""
+    from keyboards import main_menu
+    user_id = update.effective_user.id
+    clear_state(user_id)
+    
+    await update.message.reply_text(
+        "✅ Asosiy menyuga qaytdingiz",
+        reply_markup=main_menu(user_id)
+    )
+
+
+# ============ MAIN HANDLER ============
+async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    Main admin panel message handler.
+    Returns True if message was handled, False otherwise.
+    """
+    user_id = update.effective_user.id
+    
+    if not is_in_admin_panel(user_id):
+        return False
+    
+    if not is_super_admin(user_id):
+        return False
+    
+    text = update.message.text if update.message.text else ""
+    state = get_state(user_id)
+    screen = state.get("screen", "main")
+    mode = state.get("mode", "")
+    
+    # ===== EXIT =====
+    if text == BTN_EXIT:
+        await exit_admin_panel(update, context)
+        return True
+    
+    # ===== CANCEL =====
+    if text == BTN_CANCEL:
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, screen)
+        return True
+    
+    # ===== INPUT MODES (text/photo/video for adding content) =====
+    if mode:
+        return await handle_input_mode(update, context, mode)
+    
+    # ===== BACK =====
+    if text == BTN_BACK:
+        await handle_back(update, context)
+        return True
+    
+    # ===== MAIN SCREEN =====
+    if screen == "main":
+        return await handle_main_screen(update, context, text)
+    
+    # ===== PAYMENTS SCREEN =====
+    if screen == "payments":
+        return await handle_payments_screen(update, context, text)
+    
+    # ===== COURSES SCREENS =====
+    if screen == "courses":
+        return await handle_courses_screen(update, context, text)
+    
+    if screen == "course_levels":
+        return await handle_course_levels_screen(update, context, text)
+    
+    if screen == "course_countries":
+        return await handle_course_countries_screen(update, context, text)
+    
+    if screen == "course_content":
+        return await handle_course_content_screen(update, context, text)
+    
+    # ===== GROUPS SCREEN =====
+    if screen == "groups":
+        return await handle_groups_screen(update, context, text)
+    
+    if screen == "group_edit":
+        return await handle_group_edit_screen(update, context, text)
+    
+    # ===== ADMINS SCREEN =====
+    if screen == "admins":
+        return await handle_admins_screen(update, context, text)
+    
+    return False
+
+
+# ============ NAVIGATION ============
+async def navigate_to_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, screen: str):
+    """Navigate to a specific screen"""
+    user_id = update.effective_user.id
+    set_state(user_id, screen=screen)
+    
+    if screen == "main":
+        await update.message.reply_text("⚙️ *ADMIN PANEL*", reply_markup=main_admin_kb(), parse_mode="Markdown")
+    elif screen == "payments":
+        await update.message.reply_text("💳 *To'lovlar*", reply_markup=payments_kb(), parse_mode="Markdown")
+    elif screen == "courses":
+        await update.message.reply_text("📚 *Kurslar*\n\nBo'limni tanlang:", reply_markup=courses_kb(), parse_mode="Markdown")
+    elif screen == "course_levels":
+        section = get_state(user_id).get("section")
+        await update.message.reply_text("Darajani tanlang:", reply_markup=levels_kb(section))
+    elif screen == "course_countries":
+        section = get_state(user_id).get("section")
+        level = get_state(user_id).get("level")
+        await show_course_countries_info(update, context, section, level)
+    elif screen == "course_content":
+        section = get_state(user_id).get("section")
+        level = get_state(user_id).get("level")
+        country = get_state(user_id).get("country")
+        await show_course_content_info(update, context, section, level, country)
+    elif screen == "groups":
+        await show_groups_info(update, context)
+    elif screen == "admins":
+        await show_admins_info(update, context)
+
+
+async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle back button"""
+    user_id = update.effective_user.id
+    state = get_state(user_id)
+    screen = state.get("screen", "main")
+    
+    # Determine parent screen
+    if screen in ["payments", "courses", "groups", "stats", "users", "bookings", "admins"]:
+        await navigate_to_screen(update, context, "main")
+    elif screen == "course_levels":
+        await navigate_to_screen(update, context, "courses")
+    elif screen == "course_countries":
+        await navigate_to_screen(update, context, "course_levels")
+    elif screen == "course_content":
+        await navigate_to_screen(update, context, "course_countries")
+    elif screen == "group_edit":
+        await navigate_to_screen(update, context, "groups")
+    else:
+        await navigate_to_screen(update, context, "main")
+
+
+# ============ MAIN SCREEN HANDLER ============
+async def handle_main_screen(update, context, text):
+    user_id = update.effective_user.id
+    
+    if text == BTN_PAYMENTS:
+        await navigate_to_screen(update, context, "payments")
+        return True
+    
+    if text == BTN_COURSES:
+        await navigate_to_screen(update, context, "courses")
+        return True
+    
+    if text == BTN_GROUPS:
+        await navigate_to_screen(update, context, "groups")
+        return True
+    
+    if text == BTN_STATS:
+        await show_statistics(update, context)
+        return True
+    
+    if text == BTN_USERS:
+        await show_users(update, context)
+        return True
+    
+    if text == BTN_BOOKINGS:
+        await show_bookings(update, context)
+        return True
+    
+    if text == BTN_ADMINS:
+        await navigate_to_screen(update, context, "admins")
+        return True
+    
+    if text == BTN_BROADCAST:
+        set_state(user_id, mode="broadcast")
+        await update.message.reply_text(
+            "📢 *Broadcast*\n\nXabarni yuboring (matn/rasm/video):",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    if text == BTN_SEND_USER:
+        set_state(user_id, mode="send_user_id")
+        await update.message.reply_text(
+            "💬 *Userga xabar*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    return True  # we're in admin panel, swallow other messages
+
+
+# ============ STATISTICS ============
+async def show_statistics(update, context):
+    payment_stats = get_payment_stats()
+    sub_stats = get_subscription_stats()
+    
+    text = f"📊 *STATISTIKA*\n\n"
+    text += f"👥 Jami userlar: {len(user_db)}\n\n"
+    text += f"💎 Premium obunachilar: {sub_stats['premium_users']}\n"
+    text += f"📚 Sotilgan kurslar: {payment_stats['course_count']}\n"
+    text += f"📞 Konsultatsiyalar: {payment_stats['consult_count']}\n\n"
+    text += f"💰 *Jami daromad: ${payment_stats['total_revenue']}*\n\n"
+    text += f"⏳ Kutayotgan to'lovlar: {payment_stats['pending']}\n"
+    text += f"✅ Tasdiqlangan: {payment_stats['approved']}\n"
+    text += f"❌ Rad etilgan: {payment_stats['rejected']}"
+    
+    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
+
+
+async def show_users(update, context):
+    text = f"👥 *USERLAR*\n\nJami: {len(user_db)}\n\n"
+    
+    for uid, data in list(user_db.items())[:20]:
+        name = data.get("first_name", "User")
+        text += f"• {name} — `{uid}`\n"
+    
+    if len(user_db) > 20:
+        text += f"\n... va yana {len(user_db) - 20} ta"
+    
+    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
+
+
+async def show_bookings(update, context):
+    if not bookings_db:
+        text = "📋 *BRONLAR*\n\nBronlar yo'q"
+    else:
+        text = "📋 *OXIRGI BRONLAR:*\n\n"
+        for uid, bdata in list(bookings_db.items())[-10:]:
+            name = bdata.get("name", "-")
+            phone = bdata.get("phone", "-")
+            date = bdata.get("date", "-")
+            slot = bdata.get("slot", "-")
+            text += f"👤 {name}\n📱 {phone}\n📅 {date} {slot}\n🆔 `{uid}`\n\n"
+    
+    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
+
+
+# ============ PAYMENTS HANDLERS ============
+async def handle_payments_screen(update, context, text):
+    user_id = update.effective_user.id
+    
+    if text == BTN_PAY_PENDING:
+        await show_pending_payments(update, context)
+        return True
+    
+    if text == BTN_PAY_APPROVED:
+        await show_approved_payments(update, context)
+        return True
+    
+    if text == BTN_PAY_STATS:
+        await show_payment_stats(update, context)
+        return True
+    
+    # Check if user clicked on a payment ID
+    if text.startswith("✅ ") or text.startswith("❌ "):
+        await handle_payment_action(update, context, text)
+        return True
+    
+    return True
+
+
+async def show_pending_payments(update, context):
+    pending = get_pending_payments()
+    
+    if not pending:
+        await update.message.reply_text(
+            "⏳ Kutayotgan to'lovlar yo'q",
+            reply_markup=payments_kb()
+        )
+        return
+    
+    text = "⏳ *KUTAYOTGAN TO'LOVLAR:*\n\n"
+    
+    for pay_id, payment in list(pending.items()):
+        user_id = payment.get("user_id")
+        username = payment.get("username", "-")
+        first_name = payment.get("first_name", "User")
+        payment_type = payment.get("type")
+        amount = payment.get("amount")
+        
+        if payment_type == "premium":
+            type_emoji = "💎"
+            type_text = "Premium obuna"
+        elif payment_type == "course":
+            type_emoji = "📚"
+            course_id = payment.get("course_id", "")
+            type_text = f"Kurs: {course_id}"
+        else:
+            type_emoji = "📞"
+            type_text = "Konsultatsiya"
+        
+        text += f"{type_emoji} *{first_name}* (@{username})\n"
+        text += f"💰 ${amount} - {type_text}\n"
+        text += f"🆔 `{user_id}`\n"
+        text += f"📝 ID: `{pay_id}`\n\n"
+        text += f"Tasdiqlash: `/approve_{pay_id}`\n"
+        text += f"Rad etish: `/reject_{pay_id}`\n"
+        text += f"━━━━━━━━━━━━━━━\n\n"
+    
+    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
+
+
+async def show_approved_payments(update, context):
+    from payments import get_approved_payments
+    approved = get_approved_payments()
+    
+    if not approved:
+        await update.message.reply_text("✅ Tasdiqlangan to'lovlar yo'q", reply_markup=payments_kb())
+        return
+    
+    text = "✅ *TASDIQLANGAN TO'LOVLAR:*\n\n"
+    
+    for pay_id, payment in list(approved.items())[-10:]:
+        username = payment.get("username", "-")
+        first_name = payment.get("first_name", "User")
+        payment_type = payment.get("type")
+        amount = payment.get("amount")
+        
+        type_emoji = "💎" if payment_type == "premium" else ("📚" if payment_type == "course" else "📞")
+        
+        text += f"{type_emoji} {first_name} (@{username}) - ${amount}\n"
+    
+    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
+
+
+async def show_payment_stats(update, context):
+    stats = get_payment_stats()
+    
+    text = f"📊 *TO'LOV STATISTIKASI*\n\n"
+    text += f"⏳ Kutayotgan: {stats['pending']}\n"
+    text += f"✅ Tasdiqlangan: {stats['approved']}\n"
+    text += f"❌ Rad etilgan: {stats['rejected']}\n\n"
+    text += f"💎 Premium: {stats['premium_count']}\n"
+    text += f"📚 Kurslar: {stats['course_count']}\n"
+    text += f"📞 Konsultatsiya: {stats['consult_count']}\n\n"
+    text += f"💰 *Jami daromad: ${stats['total_revenue']}*"
+    
+    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
+
+
+# ============ COURSES HANDLERS ============
+async def handle_courses_screen(update, context, text):
+    user_id = update.effective_user.id
+    
+    section_map = {
+        BTN_COURSE_UNI: "universitet",
+        BTN_COURSE_VISA: "viza",
+        BTN_COURSE_WORK: "ish"
+    }
+    
+    if text in section_map:
+        set_state(user_id, section=section_map[text])
+        await navigate_to_screen(update, context, "course_levels")
+        return True
+    
+    return True
+
+
+async def handle_course_levels_screen(update, context, text):
+    user_id = update.effective_user.id
+    section = get_state(user_id).get("section")
+    levels = get_levels(section)
+    
+    for level_key, level in levels.items():
+        if level["name"] == text:
+            set_state(user_id, level=level_key)
+            await navigate_to_screen(update, context, "course_countries")
+            return True
+    
+    return True
+
+
+async def handle_course_countries_screen(update, context, text):
+    user_id = update.effective_user.id
+    section = get_state(user_id).get("section")
+    level = get_state(user_id).get("level")
+    
+    if text == BTN_ADD_COUNTRY:
+        set_state(user_id, mode="add_country")
+        await update.message.reply_text(
+            "➕ *Yangi davlat qo'shish*\n\nDavlat nomini yozing (masalan: 🇩🇪 Germaniya):",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    countries = get_countries(section, level)
+    for country_key, country in countries.items():
+        if country["name"] == text:
+            set_state(user_id, country=country_key)
+            await navigate_to_screen(update, context, "course_content")
+            return True
+    
+    return True
+
+
+async def show_course_countries_info(update, context, section, level):
+    countries = get_countries(section, level)
+    
+    if not countries:
+        text = "📚 *Davlatlar*\n\nHali davlatlar qo'shilmagan.\n\n➕ Yangi davlat qo'shish tugmasini bosing."
+    else:
+        text = f"📚 *Mavjud davlatlar:* {len(countries)} ta\n\n"
+        for country in countries.values():
+            text += f"• {country['name']}\n"
+        text += "\nDavlatni tanlab kontentni boshqaring yoki yangi davlat qo'shing."
+    
+    await update.message.reply_text(text, reply_markup=countries_kb(section, level), parse_mode="Markdown")
+
+
+async def handle_course_content_screen(update, context, text):
+    user_id = update.effective_user.id
+    section = get_state(user_id).get("section")
+    level = get_state(user_id).get("level")
+    country = get_state(user_id).get("country")
+    
+    if text == BTN_ADD_DEMO_VIDEO:
+        set_state(user_id, mode="add_demo_video")
+        await update.message.reply_text("🎥 Demo video yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_DEMO_TEXT:
+        set_state(user_id, mode="add_demo_text")
+        await update.message.reply_text("📝 Demo text yozing:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_DEMO_PHOTO:
+        set_state(user_id, mode="add_demo_photo")
+        await update.message.reply_text("🖼 Demo rasm yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_FULL_VIDEO:
+        set_state(user_id, mode="add_full_video")
+        await update.message.reply_text("🎥 To'liq kurs video yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_FULL_TEXT:
+        set_state(user_id, mode="add_full_text")
+        await update.message.reply_text("📝 To'liq kurs text yozing:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_FULL_PHOTO:
+        set_state(user_id, mode="add_full_photo")
+        await update.message.reply_text("🖼 To'liq kurs rasm yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    return True
+
+
+async def show_course_content_info(update, context, section, level, country):
+    course = get_course(section, level, country)
+    
+    if not course:
+        await update.message.reply_text("❌ Kurs topilmadi", reply_markup=country_content_kb())
+        return
+    
+    demo = course.get("demo", {})
+    full = course.get("full", {})
+    
+    text = f"📚 *{country}*\n\n"
+    text += f"*DEMO kontent:*\n"
+    text += f"🎥 Video: {'✅' if demo.get('video') else '❌'}\n"
+    text += f"📝 Text: {'✅' if demo.get('text') else '❌'}\n"
+    text += f"🖼 Rasmlar: {len(demo.get('photos', []))} ta\n\n"
+    text += f"*TO'LIQ kurs:*\n"
+    text += f"🎥 Videolar: {len(full.get('videos', []))} ta\n"
+    text += f"📝 Text: {'✅' if full.get('text') else '❌'}\n"
+    text += f"🖼 Rasmlar: {len(full.get('photos', []))} ta"
+    
+    await update.message.reply_text(text, reply_markup=country_content_kb(), parse_mode="Markdown")
+
+
+# ============ GROUPS HANDLERS ============
+async def handle_groups_screen(update, context, text):
+    user_id = update.effective_user.id
+    
+    if text == BTN_ADD_GROUP:
+        set_state(user_id, mode="add_group_country")
+        await update.message.reply_text(
+            "➕ *Yangi guruh*\n\nDavlat nomini yozing:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    # Check if user clicked on a country
+    links = get_all_links()
+    if text in links:
+        set_state(user_id, screen="group_edit", edit_country=text)
+        link = links[text]
+        await update.message.reply_text(
+            f"🔗 *{text}*\n\nLink: {link}\n\nYangi linkni yozing yoki '🗑 O'chirish' tugmasini bosing:",
+            reply_markup=ReplyKeyboardMarkup([
+                ["🗑 O'chirish"],
+                [BTN_BACK]
+            ], resize_keyboard=True),
+            parse_mode="Markdown"
+        )
+        set_state(user_id, mode="edit_group_link")
+        return True
+    
+    return True
+
+
+async def show_groups_info(update, context):
+    links = get_all_links()
+    
+    if not links:
+        text = "🔗 *Guruh linklar*\n\nHali guruhlar qo'shilmagan.\n\n➕ Yangi guruh qo'shish tugmasini bosing."
+    else:
+        text = f"🔗 *Mavjud guruhlar:* {len(links)} ta\n\n"
+        for country, link in links.items():
+            text += f"🌍 {country}: {link}\n\n"
+        text += "Davlatni tanlab linkni o'zgartiring yoki yangi qo'shing."
+    
+    await update.message.reply_text(text, reply_markup=groups_kb(), parse_mode="Markdown")
+
+
+async def handle_group_edit_screen(update, context, text):
+    user_id = update.effective_user.id
+    country = get_state(user_id).get("edit_country")
+    
+    if text == "🗑 O'chirish":
+        delete_country_link(country)
+        set_state(user_id, mode="")
+        await update.message.reply_text(f"✅ {country} guruhi o'chirildi")
+        await navigate_to_screen(update, context, "groups")
+        return True
+    
+    return True
+
+
+# ============ ADMINS HANDLERS ============
+async def handle_admins_screen(update, context, text):
+    user_id = update.effective_user.id
+    
+    if text == BTN_ADD_ADMIN:
+        set_state(user_id, mode="add_admin")
+        await update.message.reply_text(
+            "➕ *Admin qo'shish*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    # Check if clicked on existing admin
+    if text.startswith("👤 "):
+        try:
+            aid = int(text.replace("👤 ", "").strip())
+            if aid == SUPER_ADMIN_ID:
+                await update.message.reply_text("⭐️ Super adminni o'chirish mumkin emas")
+                return True
+            
+            remove_admin(aid)
+            await update.message.reply_text(f"✅ Admin o'chirildi: {aid}")
+            await navigate_to_screen(update, context, "admins")
+        except ValueError:
+            pass
+        return True
+    
+    return True
+
+
+async def show_admins_info(update, context):
+    admins = get_all_admins()
+    
+    text = f"👮 *ADMINLAR*\n\nJami: {len(admins)}\n\n"
+    for aid in admins:
+        marker = "⭐️" if aid == SUPER_ADMIN_ID else "👤"
+        text += f"{marker} `{aid}`\n"
+    text += "\nAdminni o'chirish uchun ustiga bosing."
+    
+    await update.message.reply_text(text, reply_markup=admins_kb(), parse_mode="Markdown")
+
+
+# ============ INPUT MODES ============
+async def handle_input_mode(update, context, mode):
+    """Handle text/photo/video input based on current mode"""
+    user_id = update.effective_user.id
+    state = get_state(user_id)
+    
+    message = update.message
+    text = message.text if message.text else ""
+    
+    # ===== Add country =====
+    if mode == "add_country":
+        if not text:
+            return True
+        section = state.get("section")
+        level = state.get("level")
+        course_id = add_country_to_course(section, level, text)
+        set_state(user_id, mode="")
+        await message.reply_text(f"✅ Davlat qo'shildi: {text}")
+        await navigate_to_screen(update, context, "course_countries")
+        return True
+    
+    # ===== Add demo content =====
+    if mode == "add_demo_text" and text:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_demo_content(section, level, country, "text", text)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Demo text qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_demo_video" and message.video:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_demo_content(section, level, country, "video", message.video.file_id)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Demo video qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_demo_photo" and message.photo:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_demo_content(section, level, country, "photo", message.photo[-1].file_id)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Demo rasm qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    # ===== Add full course content =====
+    if mode == "add_full_text" and text:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_full_content(section, level, country, "text", text)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ To'liq kurs text qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_full_video" and message.video:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_full_content(section, level, country, "video", message.video.file_id)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ To'liq kurs video qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_full_photo" and message.photo:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_full_content(section, level, country, "photo", message.photo[-1].file_id)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ To'liq kurs rasm qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    # ===== Add group =====
+    if mode == "add_group_country" and text:
+        set_state(user_id, mode="add_group_link", new_country=text)
+        await message.reply_text(f"✅ Davlat: {text}\n\nEndi guruh linkni yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if mode == "add_group_link" and text:
+        country = state.get("new_country")
+        set_country_link(country, text)
+        set_state(user_id, mode="")
+        await message.reply_text(f"✅ Guruh qo'shildi!\n\n🌍 {country}\n{text}")
+        await navigate_to_screen(update, context, "groups")
+        return True
+    
+    # ===== Edit group link =====
+    if mode == "edit_group_link" and text and text not in [BTN_BACK, "🗑 O'chirish"]:
+        country = state.get("edit_country")
+        set_country_link(country, text)
+        set_state(user_id, mode="")
+        await message.reply_text(f"✅ Link o'zgartirildi!\n\n🌍 {country}\n{text}")
+        await navigate_to_screen(update, context, "groups")
+        return True
+    
+    # ===== Add admin =====
+    if mode == "add_admin" and text:
+        try:
+            new_aid = int(text)
+            if add_admin(new_aid):
+                await message.reply_text(f"✅ Admin qo'shildi: {new_aid}")
+            else:
+                await message.reply_text("❌ Bu user allaqachon admin")
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, "admins")
+        return True
+    
+    # ===== Send user message =====
+    if mode == "send_user_id" and text:
+        try:
+            target_id = int(text)
+            set_state(user_id, mode="send_user_msg", target_id=target_id)
+            await message.reply_text(f"💬 User `{target_id}` ga xabar yuboring:", reply_markup=cancel_kb(), parse_mode="Markdown")
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID")
+            set_state(user_id, mode="")
+        return True
+    
+    if mode == "send_user_msg":
+        target_id = state.get("target_id")
+        try:
+            if message.photo:
+                await context.bot.send_photo(target_id, message.photo[-1].file_id, caption=message.caption or "")
+            elif message.video:
+                await context.bot.send_video(target_id, message.video.file_id, caption=message.caption or "")
+            elif text:
+                await context.bot.send_message(target_id, text)
+            else:
+                await message.reply_text("❌ Bo'sh xabar yuborib bo'lmaydi")
+                return True
+            
+            await message.reply_text("✅ Xabar yuborildi!")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+        
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, "main")
+        return True
+    
+    # ===== Broadcast =====
+    if mode == "broadcast":
+        sent = 0
+        failed = 0
+        for uid in user_db.keys():
+            try:
+                if message.photo:
+                    await context.bot.send_photo(uid, message.photo[-1].file_id, caption=message.caption or "")
+                elif message.video:
+                    await context.bot.send_video(uid, message.video.file_id, caption=message.caption or "")
+                elif text:
+                    await context.bot.send_message(uid, text)
+                sent += 1
+            except Exception:
+                failed += 1
+        
+        await message.reply_text(f"✅ Broadcast yuborildi!\n\n✅ Yuborildi: {sent}\n❌ Xato: {failed}")
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, "main")
+        return True
+    
+    return True
+
+
+# ============ APPROVE/REJECT COMMANDS ============
+async def handle_approve_command(update, context):
+    """Handle /approve_pay_xxx commands"""
+    user_id = update.effective_user.id
+    if not is_super_admin(user_id):
+        return
+    
+    command = update.message.text
+    pay_id = command.replace("/approve_", "")
+    
+    payment = get_payment(pay_id)
+    if not payment:
+        await update.message.reply_text("❌ To'lov topilmadi")
+        return
+    
+    target_user_id = payment.get("user_id")
+    payment_type = payment.get("type")
+    course_id = payment.get("course_id")
+    
+    approve_payment(pay_id)
+    
+    from texts import t
+    
+    if payment_type == "premium":
+        activate_premium(target_user_id)
+        links = get_all_links()
+        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
+        try:
+            await context.bot.send_message(
+                target_user_id,
+                t(target_user_id, "premium_approved") + "\n\n" + links_text,
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        await update.message.reply_text(f"✅ Premium tasdiqlandi: {target_user_id}")
+    
+    elif payment_type == "course":
+        activate_course(target_user_id, course_id)
+        parts = course_id.split("_")
+        link_text = ""
+        if len(parts) >= 3:
+            country = parts[2]
+            link = get_country_link(country)
+            if link:
+                link_text = f"\n\n🌍 {country}: {link}"
+        try:
+            await context.bot.send_message(
+                target_user_id,
+                t(target_user_id, "course_approved", course_name=course_id) + link_text,
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        await update.message.reply_text(f"✅ Kurs tasdiqlandi: {target_user_id}")
+    
+    elif payment_type == "consult":
+        try:
+            await context.bot.send_message(
+                target_user_id,
+                "✅ Konsultatsiyangiz tasdiqlandi! Admin: @kaccocii",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        await update.message.reply_text(f"✅ Konsultatsiya tasdiqlandi: {target_user_id}")
+
+
+async def handle_reject_command(update, context):
+    """Handle /reject_pay_xxx commands"""
+    user_id = update.effective_user.id
+    if not is_super_admin(user_id):
+        return
+    
+    command = update.message.text
+    pay_id = command.replace("/reject_", "")
+    
+    payment = get_payment(pay_id)
+    if not payment:
+        await update.message.reply_text("❌ To'lov topilmadi")
+        return
+    
+    target_user_id = payment.get("user_id")
+    reject_payment(pay_id)
+    
+    from texts import t
+    try:
+        await context.bot.send_message(target_user_id, t(target_user_id, "payment_rejected"), parse_mode="Markdown")
+    except Exception:
+        pass
+    
+    await update.message.reply_text(f"❌ To'lov rad etildi: {target_user_id}")

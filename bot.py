@@ -109,12 +109,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t(user_id, "about"), reply_markup=back_menu(user_id), parse_mode="Markdown")
         return
 
-    # Admin contact / Admin panel
-    if text == t(user_id, "btn_admin"):
-        if is_admin(user_id):
+    # Bot boshqaruvi (faqat super admin uchun)
+    if text == t(user_id, "btn_bot_panel"):
+        from admins_db import is_super_admin
+        if is_super_admin(user_id):
             await open_admin_panel(update, context)
-            return
-        await update.message.reply_text(t(user_id, "admin_contact"), reply_markup=back_menu(user_id), parse_mode="Markdown")
         return
 
     # My courses

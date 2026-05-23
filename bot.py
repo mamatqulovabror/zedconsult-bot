@@ -149,36 +149,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_course_levels(update, context, "ish")
         return
 
-    # Course level selection
-    if step(user_id) == "select_level":
-        section = users[user_id].get("section")
-        levels = get_levels(section)
-        level_names = [v["name"] for v in levels.values()]
-        
-        if text in level_names:
-            # Find level key by name
-            level_key = None
-            for key, val in levels.items():
-                if val["name"] == text:
-                    level_key = key
-                    break
-            
-            if level_key:
-                users[user_id]["level"] = level_key
-                await show_course_countries(update, context, section, level_key)
-                return
-
-    # Country selection
-    if step(user_id) == "select_country":
-        section = users[user_id].get("section")
-        level = users[user_id].get("level")
-        countries = get_countries(section, level)
-        country_names = [v["name"] for v in countries.values()]
-        
-        if text in country_names:
-            users[user_id]["country"] = text
-            await show_course_content(update, context, section, level, text)
-            return
+    # Course navigation handled by inline callbacks below
 
     # Payment screenshot handling
     if step(user_id) == "payment_screenshot":
@@ -364,99 +335,139 @@ async def handle_free_consultation(update: Update, context: ContextTypes.DEFAULT
 
 
 async def show_course_levels(update: Update, context: ContextTypes.DEFAULT_TYPE, section: str):
-    """Show course levels for a section"""
+    """Show course levels for a section as inline keyboard"""
     user_id = update.effective_user.id
     clear(user_id)
     
     levels = get_levels(section)
     if not levels:
-        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=back_menu(user_id))
+        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=main_menu(user_id))
         return
     
-    level_names = [v["name"] for v in levels.values()]
-    
-    users[user_id]["step"] = "select_level"
-    users[user_id]["section"] = section
+    # Build inline keyboard with levels
+    buttons = []
+    for level_key, level in levels.items():
+        buttons.append([InlineKeyboardButton(
+            level["name"],
+            callback_data=f"nav:level:{section}:{level_key}"
+        )])
+    buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
     
     await update.message.reply_text(
         t(user_id, "choose_level"),
-        reply_markup=level_keyboard(level_names, user_id)
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
-async def show_course_countries(update: Update, context: ContextTypes.DEFAULT_TYPE, section: str, level: str):
-    """Show countries for a course level"""
-    user_id = update.effective_user.id
+async def show_course_countries(update_or_query, context: ContextTypes.DEFAULT_TYPE, section: str, level: str):
+    """Show countries for a course level as inline keyboard"""
+    # Support both Update and CallbackQuery
+    if hasattr(update_or_query, 'callback_query') and update_or_query.callback_query:
+        query = update_or_query.callback_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+    elif hasattr(update_or_query, 'message'):
+        user_id = update_or_query.effective_user.id
+        send = lambda text, **kwargs: update_or_query.message.reply_text(text, **kwargs)
+    else:
+        # It's already a query
+        query = update_or_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
     
     countries = get_countries(section, level)
     if not countries:
-        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=back_menu(user_id))
+        await send(t(user_id, "video_coming"))
         return
     
-    country_names = [v["name"] for v in countries.values()]
+    # Build inline keyboard with countries
+    buttons = []
+    for country_key, country in countries.items():
+        buttons.append([InlineKeyboardButton(
+            country["name"],
+            callback_data=f"nav:country:{section}:{level}:{country_key}"
+        )])
+    buttons.append([
+        InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
+        InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+    ])
     
-    users[user_id]["step"] = "select_country"
-    
-    await update.message.reply_text(
+    await send(
         t(user_id, "choose_country"),
-        reply_markup=country_keyboard(country_names, user_id)
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
-async def show_course_content(update: Update, context: ContextTypes.DEFAULT_TYPE, section: str, level: str, country: str):
-    """Show course content (demo or full based on access)"""
-    user_id = update.effective_user.id
+async def show_course_content(query_or_update, context: ContextTypes.DEFAULT_TYPE, section: str, level: str, country: str):
+    """Show course content (demo or full based on access) - inline based"""
+    # Get user_id and chat_id
+    if hasattr(query_or_update, 'callback_query') and query_or_update.callback_query:
+        query = query_or_update.callback_query
+        user_id = query.from_user.id
+        chat_id = query.message.chat.id
+    elif hasattr(query_or_update, 'from_user'):
+        # CallbackQuery
+        query = query_or_update
+        user_id = query.from_user.id
+        chat_id = query.message.chat.id
+    else:
+        user_id = query_or_update.effective_user.id
+        chat_id = query_or_update.effective_chat.id
     
     course = get_course(section, level, country)
     if not course:
-        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=back_menu(user_id))
-        clear(user_id)
+        await context.bot.send_message(chat_id, t(user_id, "video_coming"))
         return
     
     course_id = course.get("id")
     has_access = has_course_access(user_id, course_id)
     
     if has_access:
-        # Show full course
-        await send_full_course(update, context, course, course_id)
+        await send_full_course_inline(context, chat_id, user_id, course, course_id, section, level)
     else:
-        # Show demo
-        await send_demo_course(update, context, course, course_id)
+        await send_demo_course_inline(context, chat_id, user_id, course, course_id, section, level)
 
 
-async def send_demo_course(update: Update, context: ContextTypes.DEFAULT_TYPE, course: dict, course_id: str):
-    """Send demo course content"""
-    user_id = update.effective_user.id
+async def send_demo_course_inline(context, chat_id, user_id, course, course_id, section, level):
+    """Send demo course content with inline keyboard"""
     demo = course.get("demo", {})
     
-    # Send demo content
+    # Send demo content (text, video, photos)
     demo_video = demo.get("video")
     demo_text = demo.get("text")
     demo_photos = demo.get("photos", [])
     
     if demo_text:
-        await update.message.reply_text(t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
+        await context.bot.send_message(chat_id, t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
     
     if demo_video:
-        await context.bot.send_video(user_id, demo_video, caption=t(user_id, "demo_content"))
+        await context.bot.send_video(chat_id, demo_video, caption=t(user_id, "demo_content"))
     
     for photo in demo_photos:
-        await context.bot.send_photo(user_id, photo)
+        await context.bot.send_photo(chat_id, photo)
     
-    # Show buy buttons
-    keyboard = course_action_keyboard(user_id, course_id, has_access=False)
-    await update.message.reply_text(
+    # Show buy buttons with back/home
+    buttons = [
+        [InlineKeyboardButton(f"💳 Kursni sotib olish - ${COURSE_PRICE}", callback_data=f"buy:course:{course_id}")],
+        [InlineKeyboardButton(f"🔰 Premium obuna - ${PREMIUM_PRICE}", callback_data="buy:premium")],
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+        ]
+    ]
+    
+    await context.bot.send_message(
+        chat_id,
         t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE),
-        reply_markup=keyboard,
+        reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
     
     clear(user_id)
 
 
-async def send_full_course(update: Update, context: ContextTypes.DEFAULT_TYPE, course: dict, course_id: str):
-    """Send full course content"""
-    user_id = update.effective_user.id
+async def send_full_course_inline(context, chat_id, user_id, course, course_id, section, level):
+    """Send full course content with inline keyboard"""
     full = course.get("full", {})
     
     # Send full content
@@ -465,17 +476,27 @@ async def send_full_course(update: Update, context: ContextTypes.DEFAULT_TYPE, c
     full_photos = full.get("photos", [])
     
     if full_text:
-        await update.message.reply_text(full_text)
+        await context.bot.send_message(chat_id, full_text)
     
     for video in full_videos:
-        await context.bot.send_video(user_id, video)
+        await context.bot.send_video(chat_id, video)
     
     for photo in full_photos:
-        await context.bot.send_photo(user_id, photo)
+        await context.bot.send_photo(chat_id, photo)
     
-    # Show back button
-    keyboard = course_action_keyboard(user_id, course_id, has_access=True)
-    await update.message.reply_text("✅ To'liq kurs", reply_markup=keyboard)
+    # Show back buttons
+    buttons = [
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+        ]
+    ]
+    
+    await context.bot.send_message(
+        chat_id,
+        "✅ To'liq kurs",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
     
     clear(user_id)
 
@@ -486,6 +507,93 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     data = query.data
+    
+    # ============ NAVIGATION CALLBACKS ============
+    if data.startswith("nav:"):
+        parts = data.split(":")
+        action = parts[1] if len(parts) > 1 else ""
+        
+        if action == "home":
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "main_menu"),
+                reply_markup=main_menu(user_id)
+            )
+            return
+        
+        if action == "level":
+            # nav:level:section:level_key -> show countries
+            section = parts[2]
+            level_key = parts[3]
+            users[user_id]["section"] = section
+            users[user_id]["level"] = level_key
+            await show_course_countries(query, context, section, level_key)
+            return
+        
+        if action == "country":
+            # nav:country:section:level:country -> show content
+            section = parts[2]
+            level = parts[3]
+            country = parts[4]
+            users[user_id]["section"] = section
+            users[user_id]["level"] = level
+            users[user_id]["country"] = country
+            # Delete the inline message and show content
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await show_course_content(query, context, section, level, country)
+            return
+        
+        if action == "back_to_levels":
+            # nav:back_to_levels:section -> show levels again
+            section = parts[2]
+            levels = get_levels(section)
+            buttons = []
+            for level_key, level in levels.items():
+                buttons.append([InlineKeyboardButton(
+                    level["name"],
+                    callback_data=f"nav:level:{section}:{level_key}"
+                )])
+            buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+            await query.edit_message_text(
+                t(user_id, "choose_level"),
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
+        
+        if action == "back_to_countries":
+            # nav:back_to_countries:section:level -> show countries again
+            section = parts[2]
+            level = parts[3]
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            countries = get_countries(section, level)
+            buttons = []
+            for country_key, country in countries.items():
+                buttons.append([InlineKeyboardButton(
+                    country["name"],
+                    callback_data=f"nav:country:{section}:{level}:{country_key}"
+                )])
+            buttons.append([
+                InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
+                InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+            ])
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "choose_country"),
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
+        
+        return
     
     if data.startswith("buy:"):
         parts = data.split(":")

@@ -29,7 +29,7 @@ def initialize_courses():
                         "countries": {}
                     },
                     "magistr": {
-                        "name": "Magistr",
+                        "name": "Magistratura",
                         "countries": {}
                     },
                     "doktorantura": {

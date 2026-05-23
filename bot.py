@@ -818,7 +818,7 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 app.add_handler(MessageHandler(filters.VIDEO, handle_video))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
-print("🎓 Zed Consult bot ishlamoqda...")
+print("🎓 Budget Viza bot ishlamoqda...")
 app.run_polling()
 
 

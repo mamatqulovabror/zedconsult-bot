@@ -1,6 +1,6 @@
 TEXTS = {
     "uz": {
-        "welcome": "🎓 *Budget Viza botiga xush kelibsiz!*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat!",
+        "welcome": "🎓 *Budget Vizaga xush kelibsiz!*\n\nBu yerda chet elga ketish uchun barcha kerakli ma'lumotlar va statistikalar mavjud — barchasi sof o'zbek tilida tayyorlangan.\n\n🏠 Uyingizdan turib, to chet el universiteti yoki ishxonasi eshigigacha bo'lgan yo'lni biz sizga to'liq o'rgatamiz.\n\n✨ *Biz bilan siz quyidagilarni qila olasiz:*\n\n✅ 100 lab universitetlarga yoki ish vakansiyalariga *tekinga* hujjat topshirish\n🏆 100% va full ride grantlarni yutish sirlarini o'rganish, bir so'm ham harajat qilmasdan davlat va halqaro grantlar sohibi bo'lish\n⚡️ Hammasini atigi 1 kun ichida o'zlashtirib, hujjat topshirishni boshlash\n🌍 Istalgan davlatga, istalgan miqdorda ariza yuborish imkoniyati\n\n💡 *SOLISHTIRMA:*\n\nKonsalting firmalar narxi o'rtacha 500$-1200$ (80% foizi sifatsiz servis ko'rsatadi, atigi 1-2 ta ish vakansiyasiga/universitetiga hujjat topshirib beradi, ko'pchiligi aldab ketadi)\n\nBiz bilan esa atigi 44$ evaziga 100-200 lab universitetlarga yoki ish vakansiyalariga hujjat topshirishni 1 kunda o'rganib olasiz! O'zingiz application jarayonini nazorat qilib turasiz\n\n_Unutmang: Sizning hujjatlaringizni o'zingizdan boshqasi ko'ngildagidek qilib topshirib bera olmaydi!_",
         "main_menu": "Kerakli bo'limni tanlang:",
         
         # Course viewing

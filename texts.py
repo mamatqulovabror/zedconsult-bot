@@ -1,6 +1,6 @@
 TEXTS = {
     "uz": {
-        "welcome": "🎓 *Budget Viza botiga xush kelibsiz!*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat!\n\nTilni tanlang / Choose language:",
+        "welcome": "🎓 *Budget Viza botiga xush kelibsiz!*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat!",
         "main_menu": "Kerakli bo'limni tanlang:",
         
         # Course viewing
@@ -58,7 +58,7 @@ TEXTS = {
         "premium_active": "💎 *Premium obuna faol*\n\n✨ Barcha kurslar ochiq\n⏱ Amal qilish: {expires}\n🎁 Tekin konsultatsiya: {free_consult}",
     },
     "en": {
-        "welcome": "🎓 *Welcome to Budget Viza!*\n\nProfessional consulting for studying and working abroad!\n\nTilni tanlang / Choose language:",
+        "welcome": "🎓 *Welcome to Budget Viza!*\n\nProfessional consulting for studying and working abroad!",
         "main_menu": "Choose a section:",
         
         # Course viewing

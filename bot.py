@@ -59,16 +59,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users:
         users[user_id] = {}
     clear(user_id)
-    # Set Uzbek as default language
-    if user_id in user_db:
+    # Ensure user has Uzbek language set
+    if user_id in user_db and user_db[user_id].get("lang") != "uz":
         user_db[user_id]["lang"] = "uz"
         from data import save_db, DB_FILE
         save_db(DB_FILE, user_db)
-    await update.message.reply_text(
-        t(user_id, "welcome"),
-        reply_markup=main_menu(user_id),
-        parse_mode="Markdown"
-    )
+    try:
+        await update.message.reply_text(
+            t(user_id, "welcome"),
+            reply_markup=main_menu(user_id),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Error in /start for user {user_id}: {e}")
+        # Fallback: send without markdown
+        await update.message.reply_text(
+            "Budget Viza botiga xush kelibsiz!",
+            reply_markup=main_menu(user_id)
+        )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):

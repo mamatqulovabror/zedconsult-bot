@@ -352,11 +352,11 @@ async def show_course_levels(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await update.message.reply_text(t(user_id, "video_coming"), reply_markup=main_menu(user_id))
         return
     
-    # Build inline keyboard with levels
+    # Build inline keyboard with levels (numbered)
     buttons = []
-    for level_key, level in levels.items():
+    for idx, (level_key, level) in enumerate(levels.items(), start=1):
         buttons.append([InlineKeyboardButton(
-            level["name"],
+            f"{idx}) {level['name']}",
             callback_data=f"nav:level:{section}:{level_key}"
         )])
     buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
@@ -563,9 +563,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             section = parts[2]
             levels = get_levels(section)
             buttons = []
-            for level_key, level in levels.items():
+            for idx, (level_key, level) in enumerate(levels.items(), start=1):
                 buttons.append([InlineKeyboardButton(
-                    level["name"],
+                    f"{idx}) {level['name']}",
                     callback_data=f"nav:level:{section}:{level_key}"
                 )])
             buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])

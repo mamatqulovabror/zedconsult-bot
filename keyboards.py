@@ -18,7 +18,7 @@ def main_menu(user_id):
     if is_super_admin(user_id):
         rows.append([t(user_id, "btn_bot_panel")])
     
-        return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
 def back_menu(user_id):

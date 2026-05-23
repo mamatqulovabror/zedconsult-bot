@@ -33,8 +33,8 @@ TEXTS = {
         "reminder": "⏰ *Eslatma!*\n\n30 daqiqadan keyin konsultatsiyangiz boshlanadi.\n📅 Sana: {date}\n⏰ Vaqt: {slot}\n\nTayyor bo'ling! 🎓",
         
         # Buttons
-        "btn_university": "🎓 Universitet",
-        "btn_visa": "✈️ Viza",
+        "btn_university": "🎓 Universitetga topshirish",
+        "btn_visa": "✈️ Vizaga topshirish",
         "btn_work": "💼 Ishga topshirish",
         "btn_premium": "💎 Premium obuna",
         "btn_consult": "📞 Konsultatsiya",
@@ -91,8 +91,8 @@ TEXTS = {
         "reminder": "⏰ *Reminder!*\n\nConsultation starts in 30 minutes.\n📅 Date: {date}\n⏰ Time: {slot}\n\nGet ready! 🎓",
         
         # Buttons
-        "btn_university": "🎓 University",
-        "btn_visa": "✈️ Visa",
+        "btn_university": "🎓 Apply to University",
+        "btn_visa": "✈️ Apply for Visa",
         "btn_work": "💼 Work",
         "btn_premium": "💎 Premium",
         "btn_consult": "📞 Consultation",

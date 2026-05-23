@@ -1,6 +1,6 @@
 TEXTS = {
     "uz": {
-        "welcome": "🎓 *Zed Consult botiga xush kelibsiz!*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat!\n\nTilni tanlang / Choose language:",
+        "welcome": "🎓 *Budget Viza botiga xush kelibsiz!*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat!\n\nTilni tanlang / Choose language:",
         "main_menu": "Kerakli bo'limni tanlang:",
         
         # Course viewing
@@ -49,7 +49,7 @@ TEXTS = {
         "main": "🏠 Asosiy",
         
         # Other
-        "about": "🎓 *Zed Consult*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium: $250/yil - barcha kurslar\n📚 Kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Admin: @kaccocii",
+        "about": "🎓 *Budget Viza*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium: $250/yil - barcha kurslar\n📚 Kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Admin: @kaccocii",
         "admin_contact": "👨‍💻 *Admin:*\n\n@kaccocii",
         "invalid_input": "❌ Iltimos, ro'yxatdan tanlang.",
         "video_coming": "🎬 Tez orada video qo'shiladi.",
@@ -58,7 +58,7 @@ TEXTS = {
         "premium_active": "💎 *Premium obuna faol*\n\n✨ Barcha kurslar ochiq\n⏱ Amal qilish: {expires}\n🎁 Tekin konsultatsiya: {free_consult}",
     },
     "en": {
-        "welcome": "🎓 *Welcome to Zed Consult!*\n\nProfessional consulting for studying and working abroad!\n\nTilni tanlang / Choose language:",
+        "welcome": "🎓 *Welcome to Budget Viza!*\n\nProfessional consulting for studying and working abroad!\n\nTilni tanlang / Choose language:",
         "main_menu": "Choose a section:",
         
         # Course viewing
@@ -107,7 +107,7 @@ TEXTS = {
         "main": "🏠 Main",
         
         # Other
-        "about": "🎓 *Zed Consult*\n\nProfessional consulting for studying and working abroad.\n\n💎 Premium: $250/year - all courses\n📚 Course: $44/year\n📞 Consultation: $15 (FREE for Premium)\n\n📱 Admin: @kaccocii",
+        "about": "🎓 *Budget Viza*\n\nProfessional consulting for studying and working abroad.\n\n💎 Premium: $250/year - all courses\n📚 Course: $44/year\n📞 Consultation: $15 (FREE for Premium)\n\n📱 Admin: @kaccocii",
         "admin_contact": "👨‍💻 *Admin:*\n\n@kaccocii",
         "invalid_input": "❌ Please choose from list.",
         "video_coming": "🎬 Video coming soon.",

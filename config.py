@@ -20,4 +20,4 @@ SLOT_INTERVAL = 30
 REMINDER_MINUTES = 30
 
 # About
-ABOUT_TEXT = "🎓 *Zed Consult* — chet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium obuna: $250/yil\n📚 Alohida kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Telegram: @kaccocii"
+ABOUT_TEXT = "🎓 *Budget Viza* — chet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium obuna: $250/yil\n📚 Alohida kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Telegram: @kaccocii"

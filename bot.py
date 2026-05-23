@@ -59,10 +59,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users:
         users[user_id] = {}
     clear(user_id)
-    users[user_id]["step"] = "lang"
+    # Set Uzbek as default language
+    if user_id in user_db:
+        user_db[user_id]["lang"] = "uz"
+        from data import save_db, DB_FILE
+        save_db(DB_FILE, user_db)
     await update.message.reply_text(
         t(user_id, "welcome"),
-        reply_markup=language_keyboard(),
+        reply_markup=main_menu(user_id),
         parse_mode="Markdown"
     )
 

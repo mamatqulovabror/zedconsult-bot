@@ -59,6 +59,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users:
         users[user_id] = {}
     clear(user_id)
+    # Exit admin panel if user is in it (so super admin can use main menu)
+    try:
+        from admin_panel import admin_state
+        if user_id in admin_state:
+            admin_state.pop(user_id, None)
+    except Exception:
+        pass
     # Ensure user has Uzbek language set
     if user_id in user_db and user_db[user_id].get("lang") != "uz":
         user_db[user_id]["lang"] = "uz"
@@ -86,6 +93,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_user(update.effective_user)
     if user_id not in users:
         users[user_id] = {}
+
+    # If user is in admin panel BUT clicks a main menu button, exit admin panel first
+    main_menu_buttons = [
+        t(user_id, "btn_university"),
+        t(user_id, "btn_visa"),
+        t(user_id, "btn_work"),
+        t(user_id, "btn_premium"),
+        t(user_id, "btn_consult"),
+        t(user_id, "btn_my_courses"),
+        t(user_id, "btn_about"),
+        t(user_id, "btn_bot_panel"),
+    ]
+    if is_in_admin_panel(user_id) and text in main_menu_buttons and text != t(user_id, "btn_bot_panel"):
+        try:
+            from admin_panel import admin_state
+            admin_state.pop(user_id, None)
+        except Exception:
+            pass
 
     # Admin panel - if user is in admin panel, route to it
     if is_in_admin_panel(user_id):

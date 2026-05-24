@@ -2,8 +2,15 @@ from datetime import datetime
 import json
 import os
 
-DB_FILE = "users.json"
-BOOKINGS_FILE = "bookings.json"
+# Use /data if mounted (Railway Volume), else current dir
+DATA_DIR = "/data" if os.path.isdir("/data") else "."
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)
+except Exception:
+    DATA_DIR = "."
+
+DB_FILE = os.path.join(DATA_DIR, "users.json")
+BOOKINGS_FILE = os.path.join(DATA_DIR, "bookings.json")
 
 users = {}
 booked_slots = {}

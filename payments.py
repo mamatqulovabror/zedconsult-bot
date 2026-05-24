@@ -3,7 +3,8 @@ import json
 import os
 from datetime import datetime
 
-PAYMENTS_FILE = "payments_db.json"
+_DATA_DIR = "/data" if os.path.isdir("/data") else "."
+PAYMENTS_FILE = os.path.join(_DATA_DIR, "payments_db.json")
 
 def load_payments():
     if os.path.exists(PAYMENTS_FILE):

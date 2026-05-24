@@ -619,7 +619,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             await query.edit_message_text(
-                "â³ *To'lovingiz tekshirilmoqda...*\n\nIltimos kuting, admin tasdiqlagandan keyin sizge kurs yuboriladi.",
+                "🕐 *To'lovingiz tekshirilmoqda...*\n\nIltimos kuting, admin tasdiqlagandan keyin sizga kurs yuboriladi.",
                 parse_mode="Markdown"
             )
         except Exception:

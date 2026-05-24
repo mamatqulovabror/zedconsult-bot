@@ -938,13 +938,13 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 app.add_handler(MessageHandler(filters.VIDEO, handle_video))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
+# Seed default countries on startup
+try:
+    seed_default_countries()
+except Exception as e:
+    print(f"Seed error: {e}")
+
 print("🎓 Budget Viza bot ishlamoqda...")
-    
-    # Seed default countries on startup
-    try:
-        seed_default_countries()
-    except Exception as e:
-        print(f"Seed error: {e}")
 app.run_polling()
 
 

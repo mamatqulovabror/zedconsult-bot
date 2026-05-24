@@ -17,7 +17,7 @@ from admins_db import is_admin
 from payments import create_payment, get_pending_payments, approve_payment, reject_payment, get_payment
 from subscriptions import activate_premium, activate_course, is_premium, has_course_access, can_use_free_consult, use_free_consult, get_user_courses
 from group_links import get_country_link, get_all_links
-from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content
+from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content, seed_default_countries
 
 # Admin panel (new ReplyKeyboard based)
 from admin_panel import (
@@ -939,6 +939,12 @@ app.add_handler(MessageHandler(filters.VIDEO, handle_video))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 print("🎓 Budget Viza bot ishlamoqda...")
+    
+    # Seed default countries on startup
+    try:
+        seed_default_countries()
+    except Exception as e:
+        print(f"Seed error: {e}")
 app.run_polling()
 
 

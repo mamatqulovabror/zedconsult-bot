@@ -461,10 +461,9 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     for photo in demo_photos:
         await context.bot.send_photo(chat_id, photo)
     
-    # Show buy buttons with back/home
+    # Show buy button with back/home (only course - no premium here)
     buttons = [
         [InlineKeyboardButton(f"💳 Kursni sotib olish - ${COURSE_PRICE}", callback_data=f"buy:course:{course_id}")],
-        [InlineKeyboardButton(f"🔰 Premium obuna - ${PREMIUM_PRICE}", callback_data="buy:premium")],
         [
             InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
             InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
@@ -610,6 +609,86 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         return
     
+    # ============ PAYMENT CONFIRMATION =============
+    if data.startswith("paid:confirm:"):
+        pay_id = data.split(":")[2]
+        payment = get_payment(pay_id)
+        if not payment:
+            await query.message.reply_text("â To'lov topilmadi.")
+            return
+        
+        try:
+            await query.edit_message_text(
+                "â³ *To'lovingiz tekshirilmoqda...*\n\nIltimos kuting, admin tasdiqlagandan keyin sizge kurs yuboriladi.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        
+        try:
+            p_first = payment.get("first_name") or "-"
+            p_user = payment.get("username") or "-"
+            p_uid = payment.get("user_id") or "-"
+            p_amount = payment.get("amount") or "-"
+            p_type = payment.get("type") or "-"
+            p_course = payment.get("course_id") or ""
+            
+            user_info = f"ð¤ *Foydalanuvchi:* {p_first}\n"
+            user_info += f"ð *Username:* @{p_user}\n"
+            user_info += f"ð *ID:* `{p_uid}`\n"
+            user_info += f"ð° *Summa:* ${p_amount}\n"
+            user_info += f"ð¦ *Turi:* {p_type}\n"
+            if p_course:
+                user_info += f"ð *Kurs:* {p_course}\n"
+            user_info += f"ð§¿ *To'lov ID:* `{pay_id}`"
+            
+            screenshot_id = payment.get("screenshot_id")
+            if screenshot_id:
+                await context.bot.send_photo(
+                    SUPER_ADMIN_ID,
+                    screenshot_id,
+                    caption=user_info,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("â Tasdiqlash", callback_data=f"admin:approve:{pay_id}"),
+                        InlineKeyboardButton("â Rad etish", callback_data=f"admin:reject:{pay_id}")
+                    ]]),
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            print(f"Admin notification error: {e}")
+        return
+    
+    # ============ ADMIN APPROVE/REJECT ============
+    if data.startswith("admin:approve:") or data.startswith("admin:reject:"):
+        if user_id != SUPER_ADMIN_ID:
+            await query.answer("â Faqat admin uchun!", show_alert=True)
+            return
+        
+        action = data.split(":")[1]
+        pay_id = data.split(":")[2]
+        
+        if action == "approve":
+            success = await handle_admin_approve_internal(context, pay_id)
+            if success:
+                try:
+                    new_cap = (query.message.caption or "") + "\n\nâ *TASDIQLANDI*"
+                    await query.edit_message_caption(caption=new_cap, parse_mode="Markdown")
+                except Exception:
+                    pass
+            else:
+                await query.answer("â Xato yuz berdi.", show_alert=True)
+        else:
+            success = await handle_admin_reject_internal(context, pay_id)
+            if success:
+                try:
+                    new_cap = (query.message.caption or "") + "\n\nâ *RAD ETILDI*"
+                    await query.edit_message_caption(caption=new_cap, parse_mode="Markdown")
+                except Exception:
+                    pass
+            else:
+                await query.answer("â Xato yuz berdi.", show_alert=True)
+        return
+    
     if data.startswith("buy:"):
         parts = data.split(":")
         payment_type = parts[1]  # "course" or "premium"
@@ -635,9 +714,28 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             users[user_id]["payment_type"] = "course"
             users[user_id]["course_id"] = course_id
             
+            # Build payment info message
+            payment_text = (
+                f"💳 *To'lov ma'lumotlari*\n\n"
+                f"📋 *Karta raqami:* `{CARD}`\n"
+                f"👤 *Egasi:* Abrorbek M.\n"
+                f"💰 *Summa:* ${COURSE_PRICE}\n\n"
+                f"✅ *To'lov usullari:*\n"
+                f"• 💳 Click\n"
+                f"• 💳 Payme\n"
+                f"• 💳 Uzumbank\n"
+                f"• 💳 Alifmobi\n"
+                f"• 💳 Paynet\n"
+                f"• 💳 Hazna\n"
+                f"• 💳 Zumrad\n\n"
+                f"📸 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
+            )
+            
             await query.message.reply_text(
-                t(user_id, "payment_course", course_name=course_id, price=COURSE_PRICE, card=CARD, methods=PAYMENT_METHODS),
-                reply_markup=back_menu(user_id),
+                payment_text,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+                ]]),
                 parse_mode="Markdown"
             )
     
@@ -647,6 +745,54 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_id,
             t(user_id, "main_menu"),
             reply_markup=main_menu(user_id)
+        )
+
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle document (PDF) uploads - treat as payment screenshot"""
+    user_id = update.effective_user.id
+    register_user(update.effective_user)
+    
+    if step(user_id) == "payment_screenshot":
+        payment_type = users[user_id].get("payment_type")
+        course_id = users[user_id].get("course_id")
+        
+        username = update.effective_user.username or "-"
+        first_name = update.effective_user.first_name or "User"
+        doc_id = update.message.document.file_id
+        
+        if payment_type == "course":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="course",
+                amount=COURSE_PRICE,
+                course_id=course_id,
+                screenshot_id=doc_id,
+                username=username,
+                first_name=first_name
+            )
+        elif payment_type == "premium":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="premium",
+                amount=PREMIUM_PRICE,
+                screenshot_id=doc_id,
+                username=username,
+                first_name=first_name
+            )
+        else:
+            return
+        
+        users[user_id]["pending_pay_id"] = pay_id
+        users[user_id]["step"] = "payment_confirm"
+        
+        await update.message.reply_text(
+            "ð *Chek qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing ð",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("ð¤ To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
+                [InlineKeyboardButton("ð  Asosiy menyu", callback_data="nav:home")]
+            ]),
+            parse_mode="Markdown"
         )
 
 
@@ -669,26 +815,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         first_name = update.effective_user.first_name or "User"
         screenshot_id = update.message.photo[-1].file_id
         
-        if payment_type == "premium":
-            # Create premium payment
-            pay_id = create_payment(
-                user_id=user_id,
-                payment_type="premium",
-                amount=PREMIUM_PRICE,
-                screenshot_id=screenshot_id,
-                username=username,
-                first_name=first_name
-            )
-            
-            # Notify admin
-            caption = f"💎 *PREMIUM OBUNA*\n\n👤 {first_name} (@{username})\n💰 ${PREMIUM_PRICE}\n🆔 {user_id}\n📝 Payment ID: {pay_id}\n\n/approve_{pay_id}\n/reject_{pay_id}"
-            
-            await context.bot.send_photo(ADMIN_ID, screenshot_id, caption=caption, parse_mode="Markdown")
-            await update.message.reply_text(t(user_id, "payment_received"), reply_markup=back_menu(user_id))
-            clear(user_id)
-        
-        elif payment_type == "course":
-            # Create course payment
+        # Create payment record (pending)
+        if payment_type == "course":
             pay_id = create_payment(
                 user_id=user_id,
                 payment_type="course",
@@ -698,38 +826,31 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username=username,
                 first_name=first_name
             )
-            
-            # Notify admin
-            caption = f"📚 *KURS SOTIB OLISH*\n\n👤 {first_name} (@{username})\n📚 Kurs: {course_id}\n💰 ${COURSE_PRICE}\n🆔 {user_id}\n📝 Payment ID: {pay_id}\n\n/approve_{pay_id}\n/reject_{pay_id}"
-            
-            await context.bot.send_photo(ADMIN_ID, screenshot_id, caption=caption, parse_mode="Markdown")
-            await update.message.reply_text(t(user_id, "payment_received"), reply_markup=back_menu(user_id))
-            clear(user_id)
-        
-        elif payment_type == "consult":
-            # Create consultation payment
-            name = users[user_id].get("name", "-")
-            phone = users[user_id].get("phone", "-")
-            date = users[user_id].get("date", "-")
-            slot = users[user_id].get("slot", "-")
-            
+        elif payment_type == "premium":
             pay_id = create_payment(
                 user_id=user_id,
-                payment_type="consult",
-                amount=CONSULT_PRICE,
+                payment_type="premium",
+                amount=PREMIUM_PRICE,
                 screenshot_id=screenshot_id,
                 username=username,
                 first_name=first_name
             )
-            
-            # Store consultation data
-            users[user_id]["payment_id"] = pay_id
-            
-            # Notify admin
-            caption = f"📞 *KONSULTATSIYA*\n\n👤 {first_name} (@{username})\n📱 {phone}\n📅 {date}\n⏰ {slot}\n💰 ${CONSULT_PRICE}\n🆔 {user_id}\n📝 Payment ID: {pay_id}\n\n/approve_{pay_id}\n/reject_{pay_id}"
-            
-            await context.bot.send_photo(ADMIN_ID, screenshot_id, caption=caption, parse_mode="Markdown")
-            await update.message.reply_text(t(user_id, "payment_received"), reply_markup=back_menu(user_id))
+        else:
+            return
+        
+        # Save pay_id in user state for "To'lov qildim" button
+        users[user_id]["pending_pay_id"] = pay_id
+        users[user_id]["step"] = "payment_confirm"
+        
+        # Show "To'lov qildim" inline button
+        await update.message.reply_text(
+            "📸 *Skrinshot qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing 👇",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📤 To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
+                [InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]
+            ]),
+            parse_mode="Markdown"
+        )
 
 
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -942,6 +1063,7 @@ app.add_handler(CallbackQueryHandler(handle_callback))
 # Messages
 app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 app.add_handler(MessageHandler(filters.VIDEO, handle_video))
 app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
@@ -973,7 +1095,7 @@ async def handle_admin_approve_internal(context, pay_id):
     if payment_type == "premium":
         expires = activate_premium(user_id)
         links = get_all_links()
-        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
+        links_text = "\n".join([f"ð {country}: {link}" for country, link in links.items()])
         await context.bot.send_message(
             user_id,
             t(user_id, "premium_approved") + "\n\n" + links_text,
@@ -983,17 +1105,71 @@ async def handle_admin_approve_internal(context, pay_id):
     elif payment_type == "course":
         expires = activate_course(user_id, course_id)
         parts = course_id.split("_")
-        if len(parts) >= 3:
-            country = parts[2]
-            link = get_country_link(country)
-            link_text = f"\n\n🌍 {country}: {link}" if link else ""
-        else:
-            link_text = ""
+        
+        # First send "approved" message
         await context.bot.send_message(
             user_id,
-            t(user_id, "course_approved", course_name=course_id) + link_text,
+            "â *To'lovingiz tasdiqlandi!*\n\nð Kursning to'liq materiallari pastda keltirilgan.",
             parse_mode="Markdown"
         )
+        
+        # Now send full course content (if available)
+        if len(parts) >= 4:
+            # course_id format: section_level_country (country may contain _)
+            section = parts[0]
+            level = parts[1]
+            country = "_".join(parts[2:])
+        elif len(parts) == 3:
+            section = parts[0]
+            level = parts[1]
+            country = parts[2]
+        else:
+            section = ""
+            level = ""
+            country = ""
+        
+        # Try to send full course content
+        try:
+            course = get_course(section, level, country) if section else None
+            if course:
+                full = course.get("full", {})
+                full_videos = full.get("videos", [])
+                full_text = full.get("text")
+                full_photos = full.get("photos", [])
+                
+                for vid in full_videos:
+                    try:
+                        await context.bot.send_video(user_id, vid)
+                    except Exception:
+                        pass
+                for ph in full_photos:
+                    try:
+                        await context.bot.send_photo(user_id, ph)
+                    except Exception:
+                        pass
+                
+                # Build final text with group link inline
+                final_text = full_text or "ð Kurs materiallari katta keltirilgan."
+                link = get_country_link(country) if country else None
+                if link:
+                    final_text += f"\n\nð¥ *Gurux'ga qo'shiling:* {link}"
+                
+                await context.bot.send_message(
+                    user_id,
+                    final_text,
+                    parse_mode="Markdown"
+                )
+            else:
+                # No course content yet - just send link if available
+                link = get_country_link(country) if country else None
+                if link:
+                    await context.bot.send_message(
+                        user_id,
+                        f"ð¥ *Gurux'ga qo'shiling:* {link}",
+                        parse_mode="Markdown"
+                    )
+        except Exception as e:
+            print(f"Full course send error: {e}")
     
     return True
 

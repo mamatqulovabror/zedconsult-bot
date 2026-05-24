@@ -370,15 +370,22 @@ async def show_course_levels(update: Update, context: ContextTypes.DEFAULT_TYPE,
 async def show_course_countries(update_or_query, context: ContextTypes.DEFAULT_TYPE, section: str, level: str):
     """Show countries for a course level as inline keyboard"""
     # Support both Update and CallbackQuery
-    if hasattr(update_or_query, 'callback_query') and update_or_query.callback_query:
+    if hasattr(update_or_query, 'callback_query') and update_or_query.callback_query is not None:
+        # It's an Update with callback_query
         query = update_or_query.callback_query
         user_id = query.from_user.id
         send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
-    elif hasattr(update_or_query, 'message'):
+    elif hasattr(update_or_query, 'from_user') and hasattr(update_or_query, 'edit_message_text'):
+        # It's a CallbackQuery directly
+        query = update_or_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+    elif hasattr(update_or_query, 'effective_user') and update_or_query.effective_user is not None:
+        # It's an Update with message
         user_id = update_or_query.effective_user.id
         send = lambda text, **kwargs: update_or_query.message.reply_text(text, **kwargs)
     else:
-        # It's already a query
+        # Fallback - assume it's a CallbackQuery
         query = update_or_query
         user_id = query.from_user.id
         send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)

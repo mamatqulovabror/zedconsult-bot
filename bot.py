@@ -667,7 +667,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 user_info += f"ð *Kurs:* {p_course}\n"
             user_info += f"ð§¿ *To'lov ID:* `{pay_id}`"
             
-            screenshot_id = payment.get("screenshot_id")
+            screenshot_id = payment.get("screenshot") or payment.get("screenshot_id")
             if screenshot_id:
                 await context.bot.send_photo(
                     SUPER_ADMIN_ID,

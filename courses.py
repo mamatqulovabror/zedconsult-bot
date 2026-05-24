@@ -2,7 +2,8 @@
 import json
 import os
 
-COURSES_FILE = "courses_db.json"
+_DATA_DIR = "/data" if os.path.isdir("/data") else "."
+COURSES_FILE = os.path.join(_DATA_DIR, "courses_db.json")
 
 def load_courses():
     if os.path.exists(COURSES_FILE):

@@ -190,3 +190,59 @@ def get_countries(section, level):
         return courses["sections"][section]["levels"][level]["countries"]
     except:
         return {}
+
+
+# Default countries for "universitet" section
+DEFAULT_UNIVERSITY_COUNTRIES = [
+    "🇺🇸 Amerika",
+    "🇨🇦 Kanada",
+    "🇩🇪 Germaniya",
+    "🇰🇷 Korea",
+    "🇦🇺 Avstraliya",
+    "🇮🇹 Italiya",
+    "🇲🇾 Malaysiya",
+    "🇱🇻 Latviya",
+    "🇵🇱 Polsha",
+    "🇭🇺 Vengriya",
+    "🇬🇧 Angliya",
+    "🇹🇷 Turkiya",
+    "🇨🇳 Xitoy",
+    "🇯🇵 Yaponiya",
+    "🇸🇦 Saudiya",
+    "🇶🇦 Qatar",
+    "🇦🇪 BAA",
+    "🇸🇬 Singapur",
+    "🇫🇷 Fransiya",
+    "🇪🇸 Ispaniya",
+    "🇳🇱 Gollandiya",
+]
+
+
+def seed_default_countries():
+    """Seed default countries for universitet section (all 3 levels) if empty"""
+    courses = load_courses()
+    
+    if "universitet" not in courses.get("sections", {}):
+        return
+    
+    levels = courses["sections"]["universitet"]["levels"]
+    changed = False
+    
+    for level_key in ["bakalavr", "magistr", "doktorantura"]:
+        if level_key not in levels:
+            continue
+        existing = levels[level_key].get("countries", {})
+        for country in DEFAULT_UNIVERSITY_COUNTRIES:
+            if country not in existing:
+                course_id = generate_course_id("universitet", level_key, country)
+                existing[country] = {
+                    "id": course_id,
+                    "name": country,
+                    "demo": {"video": None, "text": None, "photos": []},
+                    "full": {"videos": [], "text": None, "photos": []}
+                }
+                changed = True
+        levels[level_key]["countries"] = existing
+    
+    if changed:
+        save_courses(courses)

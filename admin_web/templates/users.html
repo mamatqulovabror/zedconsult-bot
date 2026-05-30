@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6">👥 Foydalanuvchilar</h1>
+<div class="bg-white rounded-lg shadow p-4 mb-4">
+  <div class="text-sm text-gray-600">Jami: <span class="font-bold text-2xl text-blue-600">{{ users | length }}</span></div>
+</div>
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ism</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Til</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qo’shilgan</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for u in users %}
+      <tr>
+        <td class="px-4 py-3 text-sm font-mono">{{ u.id }}</td>
+        <td class="px-4 py-3 text-sm">{{ u.first_name or '-' }}</td>
+        <td class="px-4 py-3 text-sm text-blue-600">@{{ u.username or '-' }}</td>
+        <td class="px-4 py-3 text-sm">{{ u.lang or 'uz' }}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">{{ u.joined or '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Hali userlar yo’q.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

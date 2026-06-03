@@ -171,6 +171,58 @@ def set_full_content(section, level, country, content_type, value):
     except:
         return False
 
+def delete_demo_content(section, level, country, content_type, index=None):
+    """Delete demo content (video, text, or photos)"""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if content_type == "video":
+            course["demo"]["video"] = None
+        elif content_type == "text":
+            course["demo"]["text"] = None
+        elif content_type == "photo":
+            if index is None:
+                course["demo"]["photos"] = []
+            else:
+                photos = course["demo"].get("photos", [])
+                if 0 <= index < len(photos):
+                    photos.pop(index)
+                    course["demo"]["photos"] = photos
+        save_courses(courses)
+        return True
+    except Exception:
+        return False
+
+
+def delete_full_content(section, level, country, content_type, index=None):
+    """Delete full course content (videos, text, photos)"""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if content_type == "video":
+            if index is None:
+                course["full"]["videos"] = []
+            else:
+                vids = course["full"].get("videos", [])
+                if 0 <= index < len(vids):
+                    vids.pop(index)
+                    course["full"]["videos"] = vids
+        elif content_type == "text":
+            course["full"]["text"] = None
+        elif content_type == "photo":
+            if index is None:
+                course["full"]["photos"] = []
+            else:
+                photos = course["full"].get("photos", [])
+                if 0 <= index < len(photos):
+                    photos.pop(index)
+                    course["full"]["photos"] = photos
+        save_courses(courses)
+        return True
+    except Exception:
+        return False
+
+
 def get_sections():
     """Get all sections"""
     courses = load_courses()

@@ -11,7 +11,7 @@ from data import user_db, bookings_db
 from payments import get_pending_payments, get_payment_stats, get_payment, approve_payment, reject_payment
 from subscriptions import get_subscription_stats, activate_premium, activate_course
 from group_links import get_all_links, set_country_link, delete_country_link, get_country_link
-from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course
+from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course, delete_demo_content, delete_full_content
 
 # Admin panel state per user
 admin_state = {}
@@ -52,6 +52,12 @@ BTN_ADD_DEMO_PHOTO = "🖼 Demo rasm qo'shish"
 BTN_ADD_FULL_VIDEO = "🎥 To'liq video qo'shish"
 BTN_ADD_FULL_TEXT = "📝 To'liq text qo'shish"
 BTN_ADD_FULL_PHOTO = "🖼 To'liq rasm qo'shish"
+BTN_DEL_DEMO_VIDEO = "🗑 Demo video o'chir"
+BTN_DEL_DEMO_TEXT = "🗑 Demo text o'chir"
+BTN_DEL_DEMO_PHOTO = "🗑 Demo rasm o'chir"
+BTN_DEL_FULL_VIDEO = "🗑 To'liq video o'chir"
+BTN_DEL_FULL_TEXT = "🗑 To'liq text o'chir"
+BTN_DEL_FULL_PHOTO = "🗑 To'liq rasm o'chir"
 
 # Groups submenu
 BTN_ADD_GROUP = "➕ Yangi guruh qo'shish"
@@ -138,10 +144,12 @@ def countries_kb(section, level):
 def country_content_kb():
     """Content management for a country"""
     return ReplyKeyboardMarkup([
-        [BTN_ADD_DEMO_VIDEO, BTN_ADD_DEMO_TEXT],
-        [BTN_ADD_DEMO_PHOTO],
-        [BTN_ADD_FULL_VIDEO, BTN_ADD_FULL_TEXT],
-        [BTN_ADD_FULL_PHOTO],
+        [BTN_ADD_DEMO_VIDEO, BTN_DEL_DEMO_VIDEO],
+        [BTN_ADD_DEMO_TEXT, BTN_DEL_DEMO_TEXT],
+        [BTN_ADD_DEMO_PHOTO, BTN_DEL_DEMO_PHOTO],
+        [BTN_ADD_FULL_VIDEO, BTN_DEL_FULL_VIDEO],
+        [BTN_ADD_FULL_TEXT, BTN_DEL_FULL_TEXT],
+        [BTN_ADD_FULL_PHOTO, BTN_DEL_FULL_PHOTO],
         [BTN_BACK]
     ], resize_keyboard=True)
 
@@ -640,6 +648,48 @@ async def handle_course_content_screen(update, context, text):
     if text == BTN_ADD_FULL_PHOTO:
         set_state(user_id, mode="add_full_photo")
         await update.message.reply_text("🖼 To'liq kurs rasm yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_DEL_DEMO_VIDEO:
+        if delete_demo_content(section, level, country, "video"):
+            await update.message.reply_text("✅ Demo video o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_DEMO_TEXT:
+        if delete_demo_content(section, level, country, "text"):
+            await update.message.reply_text("✅ Demo text o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_DEMO_PHOTO:
+        if delete_demo_content(section, level, country, "photo"):
+            await update.message.reply_text("✅ Demo rasmlar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_FULL_VIDEO:
+        if delete_full_content(section, level, country, "video"):
+            await update.message.reply_text("✅ To'liq videolar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_FULL_TEXT:
+        if delete_full_content(section, level, country, "text"):
+            await update.message.reply_text("✅ To'liq text o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_FULL_PHOTO:
+        if delete_full_content(section, level, country, "photo"):
+            await update.message.reply_text("✅ To'liq rasmlar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
         return True
     
     return True

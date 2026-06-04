@@ -658,29 +658,47 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             p_type = payment.get("type") or "-"
             p_course = payment.get("course_id") or ""
             
-            user_info = f"ð¤ *Foydalanuvchi:* {p_first}\n"
-            user_info += f"ð *Username:* @{p_user}\n"
-            user_info += f"ð *ID:* `{p_uid}`\n"
-            user_info += f"ð° *Summa:* ${p_amount}\n"
-            user_info += f"ð¦ *Turi:* {p_type}\n"
+            user_info = f"👤 Foydalanuvchi: {p_first}\n"
+            user_info += f"🆔 Username: @{p_user}\n"
+            user_info += f"🔢 ID: {p_uid}\n"
+            user_info += f"💰 Summa: ${p_amount}\n"
+            user_info += f"📦 Turi: {p_type}\n"
             if p_course:
-                user_info += f"ð *Kurs:* {p_course}\n"
-            user_info += f"ð§¿ *To'lov ID:* `{pay_id}`"
+                user_info += f"📚 Kurs: {p_course}\n"
+            user_info += f"🧾 To'lov ID: {pay_id}"
+            
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"admin:approve:{pay_id}"),
+                InlineKeyboardButton("❌ Rad etish", callback_data=f"admin:reject:{pay_id}")
+            ]])
             
             screenshot_id = payment.get("screenshot") or payment.get("screenshot_id")
+            sent_ok = False
             if screenshot_id:
-                await context.bot.send_photo(
+                try:
+                    await context.bot.send_photo(
+                        SUPER_ADMIN_ID,
+                        screenshot_id,
+                        caption=user_info,
+                        reply_markup=keyboard
+                    )
+                    sent_ok = True
+                except Exception as send_err:
+                    print(f"send_photo failed: {send_err}")
+            
+            # Fallback: send as plain text if photo failed or no screenshot
+            if not sent_ok:
+                await context.bot.send_message(
                     SUPER_ADMIN_ID,
-                    screenshot_id,
-                    caption=user_info,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("â Tasdiqlash", callback_data=f"admin:approve:{pay_id}"),
-                        InlineKeyboardButton("â Rad etish", callback_data=f"admin:reject:{pay_id}")
-                    ]]),
-                    parse_mode="Markdown"
+                    user_info + ("\n\n⚠️ Skrinshot yuborib bo'lmadi" if screenshot_id else "\n\n⚠️ Skrinshot topilmadi"),
+                    reply_markup=keyboard
                 )
         except Exception as e:
             print(f"Admin notification error: {e}")
+            try:
+                await context.bot.send_message(SUPER_ADMIN_ID, f"⚠️ Yangi to'lov keldi! Pay ID: {pay_id}\nXatolik: {e}")
+            except Exception:
+                pass
         return
     
     # ============ ADMIN APPROVE/REJECT ============

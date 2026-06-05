@@ -232,13 +232,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user's purchased courses - send full course content directly"""
+    """Show user's purchased courses - SEND FULL COURSE MATERIALS DIRECTLY"""
     user_id = update.effective_user.id
     
     # Check if premium
     if is_premium(user_id):
         from subscriptions import load_subscriptions
-        from datetime import datetime
         subs = load_subscriptions()
         user_data = subs.get(str(user_id), {})
         premium = user_data.get("premium", {})
@@ -260,12 +259,12 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Send all courses - full content directly
+    # SEND ALL COURSES - FULL CONTENT DIRECTLY!!!
     for course in courses:
         course_id = course.get("id", "")
         expires = course.get("expires", "")
         
-        # Parse course_id: "universitet_bakalavr_germaniya"
+        # Parse course_id
         parts = course_id.split("_")
         if len(parts) >= 3:
             section = parts[0]
@@ -274,10 +273,11 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             continue
         
-        # Get course data
         try:
+            # Get course data
             course_data = get_course(section, level, country)
             if not course_data:
+                await update.message.reply_text(f"❌ Kurs topilmadi: {course_id}")
                 continue
             
             # Send course header
@@ -286,31 +286,31 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             
-            # Send full course materials
+            # SEND FULL COURSE MATERIALS
             full = course_data.get("full", {})
-            full_videos = full.get("videos", [])
             full_text = full.get("text")
+            full_videos = full.get("videos", [])
             full_photos = full.get("photos", [])
             
-            # Send text
+            # Send TEXT
             if full_text:
                 await update.message.reply_text(full_text, parse_mode="Markdown")
             
-            # Send videos
+            # Send VIDEOS
             for vid in full_videos:
                 try:
-                    await update.message.send_video(user_id, vid)
+                    await context.bot.send_video(user_id, vid)
                 except Exception as e:
                     print(f"Video send error: {e}")
             
-            # Send photos
+            # Send PHOTOS
             for ph in full_photos:
                 try:
-                    await update.message.send_photo(user_id, ph)
+                    await context.bot.send_photo(user_id, ph)
                 except Exception as e:
                     print(f"Photo send error: {e}")
             
-            # Send group link
+            # Send GROUP LINK
             link = get_country_link(country)
             if link:
                 await update.message.reply_text(
@@ -319,7 +319,7 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         
         except Exception as e:
-            print(f"Course send error for {course_id}: {e}")
+            print(f"Course send error: {e}")
             await update.message.reply_text(f"❌ Kurs yuborishda xato: {course_id}")
             continue
     
@@ -420,7 +420,6 @@ async def handle_free_consultation(update: Update, context: ContextTypes.DEFAULT
     clear(user_id)
 
 
-
 async def show_course_levels(update: Update, context: ContextTypes.DEFAULT_TYPE, section: str):
     """Show course levels for a section as inline keyboard"""
     user_id = update.effective_user.id
@@ -450,21 +449,17 @@ async def show_course_countries(update_or_query, context: ContextTypes.DEFAULT_T
     """Show countries for a course level as inline keyboard"""
     # Support both Update and CallbackQuery
     if hasattr(update_or_query, 'callback_query') and update_or_query.callback_query is not None:
-        # It's an Update with callback_query
         query = update_or_query.callback_query
         user_id = query.from_user.id
         send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
     elif hasattr(update_or_query, 'from_user') and hasattr(update_or_query, 'edit_message_text'):
-        # It's a CallbackQuery directly
         query = update_or_query
         user_id = query.from_user.id
         send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
     elif hasattr(update_or_query, 'effective_user') and update_or_query.effective_user is not None:
-        # It's an Update with message
         user_id = update_or_query.effective_user.id
         send = lambda text, **kwargs: update_or_query.message.reply_text(text, **kwargs)
     else:
-        # Fallback - assume it's a CallbackQuery
         query = update_or_query
         user_id = query.from_user.id
         send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
@@ -500,7 +495,6 @@ async def show_course_content(query_or_update, context: ContextTypes.DEFAULT_TYP
         user_id = query.from_user.id
         chat_id = query.message.chat.id
     elif hasattr(query_or_update, 'from_user'):
-        # CallbackQuery
         query = query_or_update
         user_id = query.from_user.id
         chat_id = query.message.chat.id
@@ -619,7 +613,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if action == "level":
-            # nav:level:section:level_key -> show countries
             section = parts[2]
             level_key = parts[3]
             users[user_id]["section"] = section
@@ -628,14 +621,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if action == "country":
-            # nav:country:section:level:country -> show content
             section = parts[2]
             level = parts[3]
             country = parts[4]
             users[user_id]["section"] = section
             users[user_id]["level"] = level
             users[user_id]["country"] = country
-            # Delete the inline message and show content
             try:
                 await query.message.delete()
             except Exception:
@@ -644,7 +635,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if action == "back_to_levels":
-            # nav:back_to_levels:section -> show levels again
             section = parts[2]
             levels = get_levels(section)
             buttons = []
@@ -661,7 +651,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if action == "back_to_countries":
-            # nav:back_to_countries:section:level -> show countries again
             section = parts[2]
             level = parts[3]
             try:
@@ -693,7 +682,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pay_id = data.split(":")[2]
         payment = get_payment(pay_id)
         if not payment:
-            await query.message.reply_text("â To'lov topilmadi.")
+            await query.message.reply_text("❌ To'lov topilmadi.")
             return
         
         try:
@@ -761,7 +750,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ============ ADMIN APPROVE/REJECT ============
     if data.startswith("admin:approve:") or data.startswith("admin:reject:"):
         if user_id != SUPER_ADMIN_ID:
-            await query.answer("â Faqat admin uchun!", show_alert=True)
+            await query.answer("❌ Faqat admin uchun!", show_alert=True)
             return
         
         action = data.split(":")[1]
@@ -821,7 +810,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if data.startswith("buy:"):
         parts = data.split(":")
-        payment_type = parts[1]  # "course" or "premium"
+        payment_type = parts[1]
         
         if payment_type == "premium":
             clear(user_id)
@@ -917,10 +906,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users[user_id]["step"] = "payment_confirm"
         
         await update.message.reply_text(
-            "ð *Chek qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing ð",
+            "📋 *Chek qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing 👇",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("ð¤ To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
-                [InlineKeyboardButton("ð  Asosiy menyu", callback_data="nav:home")]
+                [InlineKeyboardButton("📤 To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
+                [InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]
             ]),
             parse_mode="Markdown"
         )
@@ -1042,7 +1031,6 @@ async def schedule_reminder(context, user_id, date, slot):
         pass
 
 
-
 async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle payment approval"""
     if update.effective_user.id != ADMIN_ID and update.effective_user.id != SUPER_ADMIN_ID:
@@ -1088,8 +1076,6 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
         expires = activate_course(user_id, course_id)
         
         # Get course country link
-        # Parse course_id to get country
-        # Format: "universitet_bakalavr_germaniya"
         parts = course_id.split("_")
         if len(parts) >= 3:
             country = parts[2]
@@ -1106,36 +1092,6 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         
         await update.message.reply_text(f"✅ Kurs tasdiqlandi: {user_id} - {course_id}")
-    
-    elif payment_type == "consult":
-        # Find user's consultation data
-        name = users.get(user_id, {}).get("name", "-")
-        phone = users.get(user_id, {}).get("phone", "-")
-        date = users.get(user_id, {}).get("date", "-")
-        slot = users.get(user_id, {}).get("slot", "-")
-        
-        # Book the slot
-        if date and slot:
-            if date not in booked_slots:
-                booked_slots[date] = set()
-            booked_slots[date].add(slot)
-            save_booking(user_id, {"name": name, "phone": phone, "date": date, "slot": slot})
-        
-        # Notify user
-        await context.bot.send_message(
-            user_id,
-            t(user_id, "consult_approved", date=date, slot=slot),
-            parse_mode="Markdown"
-        )
-        
-        # Schedule reminder
-        if date and slot:
-            asyncio.create_task(schedule_reminder(context, user_id, date, slot))
-        
-        await update.message.reply_text(f"✅ Konsultatsiya tasdiqlandi: {user_id}")
-        
-        if user_id in users:
-            clear(user_id)
 
 
 async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1175,7 +1131,7 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_admin_approve_internal(context, pay_id):
-    """Internal approval handler for admin panel"""
+    """Internal approval handler for admin panel - SENDS FULL COURSE MATERIALS!!!"""
     payment = get_payment(pay_id)
     if not payment:
         return False
@@ -1191,7 +1147,7 @@ async def handle_admin_approve_internal(context, pay_id):
     if payment_type == "premium":
         expires = activate_premium(user_id)
         links = get_all_links()
-        links_text = "\n".join([f"ð {country}: {link}" for country, link in links.items()])
+        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
         await context.bot.send_message(
             user_id,
             t(user_id, "premium_approved") + "\n\n" + links_text,
@@ -1208,9 +1164,8 @@ async def handle_admin_approve_internal(context, pay_id):
             "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin. Quyida to'liq materiallar kelmoqda..."
         )
         
-        # Now send full course content (if available)
+        # NOW SEND THE ACTUAL COURSE MATERIALS!!!
         if len(parts) >= 4:
-            # course_id format: section_level_country (country may contain _)
             section = parts[0]
             level = parts[1]
             country = "_".join(parts[2:])
@@ -1228,39 +1183,43 @@ async def handle_admin_approve_internal(context, pay_id):
             course = get_course(section, level, country) if section else None
             if course:
                 full = course.get("full", {})
-                full_videos = full.get("videos", [])
                 full_text = full.get("text")
+                full_videos = full.get("videos", [])
                 full_photos = full.get("photos", [])
                 
+                # Send TEXT
+                if full_text:
+                    await context.bot.send_message(user_id, full_text, parse_mode="Markdown")
+                
+                # Send VIDEOS
                 for vid in full_videos:
                     try:
                         await context.bot.send_video(user_id, vid)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"Video send error: {e}")
+                
+                # Send PHOTOS
                 for ph in full_photos:
                     try:
                         await context.bot.send_photo(user_id, ph)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"Photo send error: {e}")
                 
-                # Build final text with group link inline
-                final_text = full_text or "ð Kurs materiallari katta keltirilgan."
+                # Send GROUP LINK
                 link = get_country_link(country) if country else None
                 if link:
-                    final_text += f"\n\nð¥ *Gurux'ga qo'shiling:* {link}"
-                
-                await context.bot.send_message(
-                    user_id,
-                    final_text,
-                    parse_mode="Markdown"
-                )
+                    await context.bot.send_message(
+                        user_id,
+                        f"👥 *Gurux'ga qo'shiling:* {link}",
+                        parse_mode="Markdown"
+                    )
             else:
                 # No course content yet - just send link if available
                 link = get_country_link(country) if country else None
                 if link:
                     await context.bot.send_message(
                         user_id,
-                        f"ð¥ *Gurux'ga qo'shiling:* {link}",
+                        f"👥 *Gurux'ga qo'shiling:* {link}",
                         parse_mode="Markdown"
                     )
         except Exception as e:

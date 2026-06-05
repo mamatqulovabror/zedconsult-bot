@@ -260,20 +260,37 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Format courses list
+    # Format courses list with inline buttons
+    buttons = []
     course_list = []
     for course in courses:
         course_id = course.get("id", "")
         expires = course.get("expires", "")
         course_list.append(f"📚 {course_id}\n⏱ Amal qilish: {expires}")
+        parts_c = course_id.split("_")
+        if len(parts_c) >= 3:
+            sec = parts_c[0]
+            lev = parts_c[1]
+            cou = "_".join(parts_c[2:])
+            buttons.append([InlineKeyboardButton(
+                f"📖 {course_id}",
+                callback_data=f"nav:country:{sec}:{lev}:{cou}"
+            )])
     
     courses_text = "\n\n".join(course_list)
     
-    await update.message.reply_text(
-        t(user_id, "my_courses_list", courses=courses_text),
-        reply_markup=back_menu(user_id),
-        parse_mode="Markdown"
-    )
+    if buttons:
+        await update.message.reply_text(
+            t(user_id, "my_courses_list", courses=courses_text),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text(
+            t(user_id, "my_courses_list", courses=courses_text),
+            reply_markup=back_menu(user_id),
+            parse_mode="Markdown"
+        )
 
 
 async def start_premium_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -658,6 +675,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             p_type = payment.get("type") or "-"
             p_course = payment.get("course_id") or ""
             
+            from datetime import datetime as _dt
+            pay_time = _dt.now().strftime("%d.%m.%Y %H:%M")
             user_info = f"👤 Foydalanuvchi: {p_first}\n"
             user_info += f"🆔 Username: @{p_user}\n"
             user_info += f"🔢 ID: {p_uid}\n"
@@ -665,6 +684,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_info += f"📦 Turi: {p_type}\n"
             if p_course:
                 user_info += f"📚 Kurs: {p_course}\n"
+            user_info += f"🕐 Vaqt: {pay_time}\n"
             user_info += f"🧾 To'lov ID: {pay_id}"
             
             keyboard = InlineKeyboardMarkup([[
@@ -1117,39 +1137,6 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
         clear(user_id)
 
 
-# Build application
-app = ApplicationBuilder().token(TOKEN).build()
-
-# Commands
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("panel", open_admin_panel))
-
-# Admin approve/reject with pattern matching - use new admin_panel handlers
-from telegram.ext import MessageHandler, filters as Filters
-app.add_handler(MessageHandler(Filters.Regex(r'^/approve_pay_\d+$'), handle_approve_command))
-app.add_handler(MessageHandler(Filters.Regex(r'^/reject_pay_\d+$'), handle_reject_command))
-
-# Inline callbacks (for course buy buttons)
-app.add_handler(CallbackQueryHandler(handle_callback))
-
-# Messages
-app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-app.add_handler(MessageHandler(filters.VIDEO, handle_video))
-app.add_handler(MessageHandler(filters.TEXT, handle_message))
-
-# Seed default countries on startup
-try:
-    seed_default_countries()
-except Exception as e:
-    print(f"Seed error: {e}")
-
-print("🎓 Budget Viza bot ishlamoqda...")
-app.run_polling()
-
-
-# Export for admin panel
 async def handle_admin_approve_internal(context, pay_id):
     """Internal approval handler for admin panel"""
     payment = get_payment(pay_id)
@@ -1181,7 +1168,7 @@ async def handle_admin_approve_internal(context, pay_id):
         # First send "approved" message
         await context.bot.send_message(
             user_id,
-            "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursning to'liq materiallari pastda keltirilgan."
+            "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin. Quyida to'liq materiallar kelmoqda..."
         )
         
         # Now send full course content (if available)
@@ -1261,3 +1248,35 @@ async def handle_admin_reject_internal(context, pay_id):
     )
     
     return True
+
+
+# Build application
+app = ApplicationBuilder().token(TOKEN).build()
+
+# Commands
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("panel", open_admin_panel))
+
+# Admin approve/reject with pattern matching - use new admin_panel handlers
+from telegram.ext import MessageHandler, filters as Filters
+app.add_handler(MessageHandler(Filters.Regex(r'^/approve_pay_\d+$'), handle_approve_command))
+app.add_handler(MessageHandler(Filters.Regex(r'^/reject_pay_\d+$'), handle_reject_command))
+
+# Inline callbacks (for course buy buttons)
+app.add_handler(CallbackQueryHandler(handle_callback))
+
+# Messages
+app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+app.add_handler(MessageHandler(filters.VIDEO, handle_video))
+app.add_handler(MessageHandler(filters.TEXT, handle_message))
+
+# Seed default countries on startup
+try:
+    seed_default_countries()
+except Exception as e:
+    print(f"Seed error: {e}")
+
+print("🎓 Budget Viza bot ishlamoqda...")
+app.run_polling()

@@ -711,26 +711,56 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pay_id = data.split(":")[2]
         
         if action == "approve":
-            success = await handle_admin_approve_internal(context, pay_id)
+            try:
+                success = await handle_admin_approve_internal(context, pay_id)
+            except Exception as e:
+                print(f"approve_internal exception: {e}")
+                success = False
             if success:
                 try:
-                    new_cap = (query.message.caption or "") + "\n\nâ *TASDIQLANDI*"
-                    await query.edit_message_caption(caption=new_cap, parse_mode="Markdown")
+                    new_cap = (query.message.caption or "") + "\n\n✅ TASDIQLANDI"
+                    await query.edit_message_caption(caption=new_cap)
+                except Exception as e1:
+                    print(f"edit_caption failed: {e1}")
+                    try:
+                        await context.bot.send_message(SUPER_ADMIN_ID, f"✅ To'lov tasdiqlandi va kurs yuborildi! Pay ID: {pay_id}")
+                    except Exception:
+                        pass
+                try:
+                    await query.answer("✅ Tasdiqlandi va kurs yuborildi", show_alert=False)
                 except Exception:
                     pass
             else:
-                await query.answer("â Xato yuz berdi.", show_alert=True)
+                try:
+                    await query.answer("❌ Xato yuz berdi", show_alert=True)
+                except Exception:
+                    pass
+                try:
+                    await context.bot.send_message(SUPER_ADMIN_ID, f"❌ Tasdiqlashda xato! Pay ID: {pay_id}")
+                except Exception:
+                    pass
         else:
-            success = await handle_admin_reject_internal(context, pay_id)
+            try:
+                success = await handle_admin_reject_internal(context, pay_id)
+            except Exception as e:
+                print(f"reject_internal exception: {e}")
+                success = False
             if success:
                 try:
-                    new_cap = (query.message.caption or "") + "\n\nâ *RAD ETILDI*"
-                    await query.edit_message_caption(caption=new_cap, parse_mode="Markdown")
+                    new_cap = (query.message.caption or "") + "\n\n❌ RAD ETILDI"
+                    await query.edit_message_caption(caption=new_cap)
+                except Exception as e1:
+                    print(f"edit_caption failed: {e1}")
+                try:
+                    await query.answer("❌ Rad etildi", show_alert=False)
                 except Exception:
                     pass
             else:
-                await query.answer("â Xato yuz berdi.", show_alert=True)
-        return
+                try:
+                    await query.answer("❌ Xato yuz berdi", show_alert=True)
+                except Exception:
+                    pass
+                return
     
     if data.startswith("buy:"):
         parts = data.split(":")
@@ -992,8 +1022,7 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
         # Notify user
         await context.bot.send_message(
             user_id,
-            t(user_id, "premium_approved") + "\n\n" + links_text,
-            parse_mode="Markdown"
+            t(user_id, "premium_approved") + "\n\n" + links_text
         )
         
         await update.message.reply_text(f"✅ Premium tasdiqlandi: {user_id}")
@@ -1152,8 +1181,7 @@ async def handle_admin_approve_internal(context, pay_id):
         # First send "approved" message
         await context.bot.send_message(
             user_id,
-            "â *To'lovingiz tasdiqlandi!*\n\nð Kursning to'liq materiallari pastda keltirilgan.",
-            parse_mode="Markdown"
+            "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursning to'liq materiallari pastda keltirilgan."
         )
         
         # Now send full course content (if available)

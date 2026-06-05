@@ -232,7 +232,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user's purchased courses"""
+    """Show user's purchased courses - send full course content directly"""
     user_id = update.effective_user.id
     
     # Check if premium
@@ -260,37 +260,74 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Format courses list with inline buttons
-    buttons = []
-    course_list = []
+    # Send all courses - full content directly
     for course in courses:
         course_id = course.get("id", "")
         expires = course.get("expires", "")
-        course_list.append(f"📚 {course_id}\n⏱ Amal qilish: {expires}")
-        parts_c = course_id.split("_")
-        if len(parts_c) >= 3:
-            sec = parts_c[0]
-            lev = parts_c[1]
-            cou = "_".join(parts_c[2:])
-            buttons.append([InlineKeyboardButton(
-                f"📖 {course_id}",
-                callback_data=f"nav:country:{sec}:{lev}:{cou}"
-            )])
+        
+        # Parse course_id: "universitet_bakalavr_germaniya"
+        parts = course_id.split("_")
+        if len(parts) >= 3:
+            section = parts[0]
+            level = parts[1]
+            country = "_".join(parts[2:])
+        else:
+            continue
+        
+        # Get course data
+        try:
+            course_data = get_course(section, level, country)
+            if not course_data:
+                continue
+            
+            # Send course header
+            await update.message.reply_text(
+                f"📚 *{course_id}*\n⏱ Amal qilish: {expires}",
+                parse_mode="Markdown"
+            )
+            
+            # Send full course materials
+            full = course_data.get("full", {})
+            full_videos = full.get("videos", [])
+            full_text = full.get("text")
+            full_photos = full.get("photos", [])
+            
+            # Send text
+            if full_text:
+                await update.message.reply_text(full_text, parse_mode="Markdown")
+            
+            # Send videos
+            for vid in full_videos:
+                try:
+                    await update.message.send_video(user_id, vid)
+                except Exception as e:
+                    print(f"Video send error: {e}")
+            
+            # Send photos
+            for ph in full_photos:
+                try:
+                    await update.message.send_photo(user_id, ph)
+                except Exception as e:
+                    print(f"Photo send error: {e}")
+            
+            # Send group link
+            link = get_country_link(country)
+            if link:
+                await update.message.reply_text(
+                    f"👥 *Gurux'ga qo'shiling:* {link}",
+                    parse_mode="Markdown"
+                )
+        
+        except Exception as e:
+            print(f"Course send error for {course_id}: {e}")
+            await update.message.reply_text(f"❌ Kurs yuborishda xato: {course_id}")
+            continue
     
-    courses_text = "\n\n".join(course_list)
-    
-    if buttons:
-        await update.message.reply_text(
-            t(user_id, "my_courses_list", courses=courses_text),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown"
-        )
-    else:
-        await update.message.reply_text(
-            t(user_id, "my_courses_list", courses=courses_text),
-            reply_markup=back_menu(user_id),
-            parse_mode="Markdown"
-        )
+    # Final menu
+    await update.message.reply_text(
+        t(user_id, "main_menu"),
+        reply_markup=main_menu(user_id)
+    )
 
 
 async def start_premium_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):

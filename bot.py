@@ -259,32 +259,25 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # SEND ALL COURSES - FULL CONTENT DIRECTLY!!!
+    # SEND ALL COURSES - FULL CONTENT DIRECTLY
+    from courses import get_course_by_id
+    
     for course in courses:
         course_id = course.get("id", "")
         expires = course.get("expires", "")
         
-        # Parse course_id
-        parts = course_id.split("_")
-        if len(parts) >= 3:
-            section = parts[0]
-            level = parts[1]
-            country = "_".join(parts[2:])
-        else:
-            continue
-        
         try:
-            # Get course data
-            course_data = get_course(section, level, country)
-            if not course_data:
+            course_info = get_course_by_id(course_id)
+            if not course_info:
                 await update.message.reply_text(f"❌ Kurs topilmadi: {course_id}")
                 continue
             
+            course_data = course_info["data"]
+            country = course_info["country"]
+            
             # Send course header
-            await update.message.reply_text(
-                f"📚 *{course_id}*\n⏱ Amal qilish: {expires}",
-                parse_mode="Markdown"
-            )
+            msg = f"📚 *{course_id}*\n⏱ Amal qilish: {expires}"
+            await update.message.reply_text(msg, parse_mode="Markdown")
             
             # SEND FULL COURSE MATERIALS
             full = course_data.get("full", {})
@@ -301,33 +294,27 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_video(user_id, vid)
                 except Exception as e:
-                    print(f"Video send error: {e}")
+                    print(f"Video error: {e}")
             
             # Send PHOTOS
             for ph in full_photos:
                 try:
                     await context.bot.send_photo(user_id, ph)
                 except Exception as e:
-                    print(f"Photo send error: {e}")
+                    print(f"Photo error: {e}")
             
             # Send GROUP LINK
             link = get_country_link(country)
             if link:
-                await update.message.reply_text(
-                    f"👥 *Gurux'ga qo'shiling:* {link}",
-                    parse_mode="Markdown"
-                )
+                await update.message.reply_text(f"👥 *Gurux'ga qo'shiling:* {link}", parse_mode="Markdown")
         
         except Exception as e:
-            print(f"Course send error: {e}")
-            await update.message.reply_text(f"❌ Kurs yuborishda xato: {course_id}")
+            print(f"Course error: {e}")
+            await update.message.reply_text(f"❌ Xato: {course_id}")
             continue
     
     # Final menu
-    await update.message.reply_text(
-        t(user_id, "main_menu"),
-        reply_markup=main_menu(user_id)
-    )
+    await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
 
 
 async def start_premium_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1131,7 +1118,7 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_admin_approve_internal(context, pay_id):
-    """Internal approval handler for admin panel - SENDS FULL COURSE MATERIALS!!!"""
+    """Internal approval handler for admin panel"""
     payment = get_payment(pay_id)
     if not payment:
         return False
@@ -1140,90 +1127,49 @@ async def handle_admin_approve_internal(context, pay_id):
     payment_type = payment.get("type")
     course_id = payment.get("course_id")
     
-    # Approve payment
     approve_payment(pay_id)
     
-    # Activate subscription
     if payment_type == "premium":
         expires = activate_premium(user_id)
         links = get_all_links()
         links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
-        await context.bot.send_message(
-            user_id,
-            t(user_id, "premium_approved") + "\n\n" + links_text,
-            parse_mode="Markdown"
-        )
+        await context.bot.send_message(user_id, t(user_id, "premium_approved") + "\n\n" + links_text, parse_mode="Markdown")
     
     elif payment_type == "course":
         expires = activate_course(user_id, course_id)
-        parts = course_id.split("_")
+        await context.bot.send_message(user_id, "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin.")
         
-        # First send "approved" message
-        await context.bot.send_message(
-            user_id,
-            "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin. Quyida to'liq materiallar kelmoqda..."
-        )
-        
-        # NOW SEND THE ACTUAL COURSE MATERIALS!!!
-        if len(parts) >= 4:
-            section = parts[0]
-            level = parts[1]
-            country = "_".join(parts[2:])
-        elif len(parts) == 3:
-            section = parts[0]
-            level = parts[1]
-            country = parts[2]
-        else:
-            section = ""
-            level = ""
-            country = ""
-        
-        # Try to send full course content
         try:
-            course = get_course(section, level, country) if section else None
-            if course:
-                full = course.get("full", {})
+            from courses import get_course_by_id
+            course_info = get_course_by_id(course_id)
+            if course_info:
+                country = course_info["country"]
+                course_data = course_info["data"]
+                full = course_data.get("full", {})
                 full_text = full.get("text")
                 full_videos = full.get("videos", [])
                 full_photos = full.get("photos", [])
                 
-                # Send TEXT
                 if full_text:
                     await context.bot.send_message(user_id, full_text, parse_mode="Markdown")
                 
-                # Send VIDEOS
                 for vid in full_videos:
                     try:
                         await context.bot.send_video(user_id, vid)
-                    except Exception as e:
-                        print(f"Video send error: {e}")
+                    except Exception:
+                        pass
                 
-                # Send PHOTOS
                 for ph in full_photos:
                     try:
                         await context.bot.send_photo(user_id, ph)
-                    except Exception as e:
-                        print(f"Photo send error: {e}")
+                    except Exception:
+                        pass
                 
-                # Send GROUP LINK
-                link = get_country_link(country) if country else None
+                link = get_country_link(country)
                 if link:
-                    await context.bot.send_message(
-                        user_id,
-                        f"👥 *Gurux'ga qo'shiling:* {link}",
-                        parse_mode="Markdown"
-                    )
-            else:
-                # No course content yet - just send link if available
-                link = get_country_link(country) if country else None
-                if link:
-                    await context.bot.send_message(
-                        user_id,
-                        f"👥 *Gurux'ga qo'shiling:* {link}",
-                        parse_mode="Markdown"
-                    )
+                    await context.bot.send_message(user_id, f"👥 *Gurux'ga qo'shiling:* {link}", parse_mode="Markdown")
         except Exception as e:
-            print(f"Full course send error: {e}")
+            print(f"Course send error: {e}")
     
     return True
 

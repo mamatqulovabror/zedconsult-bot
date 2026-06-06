@@ -252,7 +252,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return True
     
     # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode:
+    if mode and mode != "edit_country":
         return await handle_input_mode(update, context, mode)
     
     # ===== BACK =====

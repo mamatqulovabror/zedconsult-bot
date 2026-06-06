@@ -46,6 +46,8 @@ BTN_LEVEL_DOKTOR = "Doktorantura"
 
 # Content actions
 BTN_ADD_COUNTRY = "➕ Yangi davlat qo'shish"
+BTN_EDIT_COUNTRY = "✏️ Davlatni tahrirlash"
+BTN_DELETE_COUNTRY = "❌ Davlatni o'chirish"
 BTN_ADD_DEMO_VIDEO = "🎥 Demo video qo'shish"
 BTN_ADD_DEMO_TEXT = "📝 Demo text qo'shish"
 BTN_ADD_DEMO_PHOTO = "🖼 Demo rasm qo'shish"
@@ -131,11 +133,13 @@ def levels_kb(section):
 
 
 def countries_kb(section, level):
-    """Countries in section/level"""
+    """Countries in section/level - with edit/delete buttons"""
     countries = get_countries(section, level)
     rows = []
     for country_key, country in countries.items():
-        rows.append([country["name"]])
+        country_name = country["name"]
+        rows.append([country_name])
+        rows.append([f"✏️ {country_name}", f"❌ {country_name}"])
     rows.append([BTN_ADD_COUNTRY])
     rows.append([BTN_BACK])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)

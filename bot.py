@@ -259,29 +259,30 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # SEND ALL COURSES - FULL CONTENT DIRECTLY using get_course_by_id()!!!
-    from courses import get_course_by_id
-    
+    # SEND ALL COURSES - FULL CONTENT DIRECTLY!!!
     for course in courses:
         course_id = course.get("id", "")
         expires = course.get("expires", "")
         
+        # Parse course_id
+        parts = course_id.split("_")
+        if len(parts) >= 3:
+            section = parts[0]
+            level = parts[1]
+            country = "_".join(parts[2:])
+        else:
+            continue
+        
         try:
-            # Get course data using course_id directly
-            course_info = get_course_by_id(course_id)
-            if not course_info:
+            # Get course data
+            course_data = get_course(section, level, country)
+            if not course_data:
                 await update.message.reply_text(f"❌ Kurs topilmadi: {course_id}")
                 continue
             
-            section = course_info["section"]
-            level = course_info["level"]
-            country = course_info["country"]
-            course_data = course_info["data"]
-            
             # Send course header
             await update.message.reply_text(
-                f"📚 *{course_id}*
-⏱ Amal qilish: {expires}",
+                f"📚 *{course_id}*\n⏱ Amal qilish: {expires}",
                 parse_mode="Markdown"
             )
             
@@ -1146,39 +1147,42 @@ async def handle_admin_approve_internal(context, pay_id):
     if payment_type == "premium":
         expires = activate_premium(user_id)
         links = get_all_links()
-        links_text = "
-".join([f"🌍 {country}: {link}" for country, link in links.items()])
+        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
         await context.bot.send_message(
             user_id,
-            t(user_id, "premium_approved") + "
-
-" + links_text,
+            t(user_id, "premium_approved") + "\n\n" + links_text,
             parse_mode="Markdown"
         )
     
     elif payment_type == "course":
         expires = activate_course(user_id, course_id)
+        parts = course_id.split("_")
         
         # First send "approved" message
         await context.bot.send_message(
             user_id,
-            "✅ To'lovingiz tasdiqlandi!
-
-📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin. Quyida to'liq materiallar kelmoqda..."
+            "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin. Quyida to'liq materiallar kelmoqda..."
         )
         
-        # NOW SEND THE ACTUAL COURSE MATERIALS using get_course_by_id()!!!
+        # NOW SEND THE ACTUAL COURSE MATERIALS!!!
+        if len(parts) >= 4:
+            section = parts[0]
+            level = parts[1]
+            country = "_".join(parts[2:])
+        elif len(parts) == 3:
+            section = parts[0]
+            level = parts[1]
+            country = parts[2]
+        else:
+            section = ""
+            level = ""
+            country = ""
+        
+        # Try to send full course content
         try:
-            from courses import get_course_by_id
-            
-            course_info = get_course_by_id(course_id)
-            if course_info:
-                section = course_info["section"]
-                level = course_info["level"]
-                country = course_info["country"]
-                course_data = course_info["data"]
-                
-                full = course_data.get("full", {})
+            course = get_course(section, level, country) if section else None
+            if course:
+                full = course.get("full", {})
                 full_text = full.get("text")
                 full_videos = full.get("videos", [])
                 full_photos = full.get("photos", [])
@@ -1210,11 +1214,16 @@ async def handle_admin_approve_internal(context, pay_id):
                         parse_mode="Markdown"
                     )
             else:
-                # Course not found - just send a message
-                await context.bot.send_message(user_id, f"📚 Kurs: {course_id}")
+                # No course content yet - just send link if available
+                link = get_country_link(country) if country else None
+                if link:
+                    await context.bot.send_message(
+                        user_id,
+                        f"👥 *Gurux'ga qo'shiling:* {link}",
+                        parse_mode="Markdown"
+                    )
         except Exception as e:
-            print(f"Course send error: {e}")
-            await context.bot.send_message(user_id, f"📚 Kurs yuborildi: {course_id}")
+            print(f"Full course send error: {e}")
     
     return True
 

@@ -595,6 +595,30 @@ async def handle_course_countries_screen(update, context, text):
         return True
     
     countries = get_countries(section, level)
+    
+    # Check for EDIT button (✏️ Country_name)
+    for country_key, country in countries.items():
+        if text == f"✏️ {country['name']}":
+            set_state(user_id, mode="edit_country", edit_country_old=country_key)
+            await update.message.reply_text(
+                f"✏️ *Tahrirlash: {country['name']}*\n\nYangi nomi yozing:",
+                reply_markup=cancel_kb(),
+                parse_mode="Markdown"
+            )
+            return True
+    
+    # Check for DELETE button (❌ Country_name)
+    for country_key, country in countries.items():
+        if text == f"❌ {country['name']}":
+            set_state(user_id, mode="delete_country", delete_country_name=country_key, delete_country_display=country['name'])
+            await update.message.reply_text(
+                f"❌ *O'chirish: {country['name']}*\n\nTasdiqlash uchun 'HA' yozing yoki BEKOR qilish uchun 'YO'Q' yozing:",
+                reply_markup=cancel_kb(),
+                parse_mode="Markdown"
+            )
+            return True
+    
+    # Regular country selection
     for country_key, country in countries.items():
         if country["name"] == text:
             set_state(user_id, country=country_key)

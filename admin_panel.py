@@ -585,10 +585,39 @@ async def handle_course_countries_screen(update, context, text):
     section = get_state(user_id).get("section")
     level = get_state(user_id).get("level")
     
+    # EDIT MODE: waiting for new name input
+    if get_state(user_id).get("mode") == "edit_country":
+        old_key = get_state(user_id).get("edit_country_old")
+        try:
+            from courses import load_courses, save_courses
+            from subscriptions import load_subscriptions, save_subscriptions
+            cd = load_courses()
+            cdict = cd["sections"][section]["levels"][level]["countries"]
+            old_display = cdict[old_key].get("name", old_key)
+            cdict[text] = cdict.pop(old_key)
+            cdict[text]["name"] = text
+            save_courses(cd)
+            subs = load_subscriptions()
+            cnt = 0
+            for uid_str, ud in subs.items():
+                for c in ud.get("courses", []):
+                    cid = str(c.get("id", ""))
+                    if cid.startswith(f"{section}_{level}_{old_key}"):
+                        c["id"] = cid.replace(f"{section}_{level}_{old_key}", f"{section}_{level}_{text}")
+                        cnt += 1
+            save_subscriptions(subs)
+            set_state(user_id, mode="")
+            await update.message.reply_text(f"\u2705 {old_display} \u2192 {text}\n\ud83d\udce2 Mijozlar: {cnt} ta kurs o'zgartirildi", parse_mode="Markdown")
+            await navigate_to_screen(update, context, "course_countries")
+        except Exception as e:
+            set_state(user_id, mode="")
+            await update.message.reply_text(f"\u274c Xato: {e}")
+        return True
+    
     if text == BTN_ADD_COUNTRY:
         set_state(user_id, mode="add_country")
         await update.message.reply_text(
-            "➕ *Yangi davlat qo'shish*\n\nDavlat nomini yozing (masalan: 🇩🇪 Germaniya):",
+            "\u2795 *Yangi davlat qo'shish*\n\nDavlat nomini yozing:",
             reply_markup=cancel_kb(),
             parse_mode="Markdown"
         )
@@ -596,26 +625,44 @@ async def handle_course_countries_screen(update, context, text):
     
     countries = get_countries(section, level)
     
-    # Check for EDIT button (✏️ Country_name)
+    # EDIT button - ask for new name
     for country_key, country in countries.items():
-        if text == f"✏️ {country['name']}":
+        if text == f"\u270f\ufe0f {country['name']}":
             set_state(user_id, mode="edit_country", edit_country_old=country_key)
             await update.message.reply_text(
-                f"✏️ *Tahrirlash: {country['name']}*\n\nYangi nomi yozing:",
+                f"\u270f\ufe0f *{country['name']}*\n\nYangi nomini yozing:",
                 reply_markup=cancel_kb(),
                 parse_mode="Markdown"
             )
             return True
     
-    # Check for DELETE button (❌ Country_name)
+    # DELETE button - DIRECT, no confirmation
     for country_key, country in countries.items():
-        if text == f"❌ {country['name']}":
-            set_state(user_id, mode="delete_country", delete_country_name=country_key, delete_country_display=country['name'])
-            await update.message.reply_text(
-                f"❌ *O'chirish: {country['name']}*\n\nTasdiqlash uchun 'HA' yozing yoki BEKOR qilish uchun 'YO'Q' yozing:",
-                reply_markup=cancel_kb(),
-                parse_mode="Markdown"
-            )
+        if text == f"\u274c {country['name']}":
+            try:
+                from courses import load_courses, save_courses
+                from subscriptions import load_subscriptions, save_subscriptions
+                cd = load_courses()
+                cdict = cd["sections"][section]["levels"][level]["countries"]
+                display = cdict[country_key].get("name", country_key)
+                del cdict[country_key]
+                save_courses(cd)
+                subs = load_subscriptions()
+                cnt = 0
+                for uid_str, ud in subs.items():
+                    cl = ud.get("courses", [])
+                    before = len(cl)
+                    cl[:] = [c for c in cl if not str(c.get("id","")).startswith(f"{section}_{level}_{country_key}")]
+                    if len(cl) < before:
+                        cnt += 1
+                save_subscriptions(subs)
+                await update.message.reply_text(
+                    f"\u274c *{display} o'chirildi!*\n\ud83d\udce2 Mijozlar akkountidan: {cnt} ta kurs o'chirildi",
+                    parse_mode="Markdown"
+                )
+                await navigate_to_screen(update, context, "course_countries")
+            except Exception as e:
+                await update.message.reply_text(f"\u274c Xato: {e}")
             return True
     
     # Regular country selection
@@ -626,7 +673,6 @@ async def handle_course_countries_screen(update, context, text):
             return True
     
     return True
-
 
 async def show_course_countries_info(update, context, section, level):
     countries = get_countries(section, level)

@@ -292,14 +292,14 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Send VIDEOS
             for vid in full_videos:
                 try:
-                    await context.bot.send_video(user_id, vid)
+                    await context.bot.send_video(user_id, vid, protect_content=True)
                 except Exception as e:
                     print(f"Video error: {e}")
             
             # Send PHOTOS
             for ph in full_photos:
                 try:
-                    await context.bot.send_photo(user_id, ph)
+                    await context.bot.send_photo(user_id, ph, protect_content=True)
                 except Exception as e:
                     print(f"Photo error: {e}")
             
@@ -513,10 +513,10 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
         await context.bot.send_message(chat_id, t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
     
     if demo_video:
-        await context.bot.send_video(chat_id, demo_video, caption=t(user_id, "demo_content"))
+        await context.bot.send_video(chat_id, demo_video, caption=t(user_id, "demo_content"), protect_content=True)
     
     for photo in demo_photos:
-        await context.bot.send_photo(chat_id, photo)
+        await context.bot.send_photo(chat_id, photo, protect_content=True)
     
     # Show buy button with back/home (only course - no premium here)
     buttons = [
@@ -550,10 +550,10 @@ async def send_full_course_inline(context, chat_id, user_id, course, course_id, 
         await context.bot.send_message(chat_id, full_text)
     
     for video in full_videos:
-        await context.bot.send_video(chat_id, video)
+        await context.bot.send_video(chat_id, video, protect_content=True)
     
     for photo in full_photos:
-        await context.bot.send_photo(chat_id, photo)
+        await context.bot.send_photo(chat_id, photo, protect_content=True)
     
     # Show back buttons
     buttons = [
@@ -1150,13 +1150,13 @@ async def handle_admin_approve_internal(context, pay_id):
                 
                 for vid in full_videos:
                     try:
-                        await context.bot.send_video(user_id, vid)
+                        await context.bot.send_video(user_id, vid, protect_content=True)
                     except Exception:
                         pass
                 
                 for ph in full_photos:
                     try:
-                        await context.bot.send_photo(user_id, ph)
+                        await context.bot.send_photo(user_id, ph, protect_content=True)
                     except Exception:
                         pass
                 

@@ -456,13 +456,10 @@ async def show_course_countries(update_or_query, context: ContextTypes.DEFAULT_T
         await send(t(user_id, "video_coming"))
         return
     
-    # Build inline keyboard with countries
-    buttons = []
-    for country_key, country in countries.items():
-        buttons.append([InlineKeyboardButton(
-            country["name"],
-            callback_data=f"nav:country:{section}:{level}:{country_key}"
-        )])
+    # Build inline keyboard with countries - 2 per row
+    country_items = list(countries.items())
+    btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"nav:country:{section}:{level}:{country_key}") for country_key, country in country_items]
+    buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
     buttons.append([
         InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
         InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
@@ -646,11 +643,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             countries = get_countries(section, level)
             buttons = []
-            for country_key, country in countries.items():
-                buttons.append([InlineKeyboardButton(
-                    country["name"],
-                    callback_data=f"nav:country:{section}:{level}:{country_key}"
-                )])
+            country_items = list(countries.items())
+            btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"nav:country:{section}:{level}:{country_key}") for country_key, country in country_items]
+            buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
             buttons.append([
                 InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
                 InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")

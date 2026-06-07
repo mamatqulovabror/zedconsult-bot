@@ -67,8 +67,9 @@ def level_keyboard(levels, user_id):
 
 
 def country_keyboard(countries, user_id):
-    """Countries keyboard"""
-    rows = [[country] for country in countries]
+    """Countries keyboard - 2 per row"""
+    country_list = list(countries)
+    rows = [country_list[i:i+2] for i in range(0, len(country_list), 2)]
     rows.append([t(user_id, "back"), t(user_id, "main")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 

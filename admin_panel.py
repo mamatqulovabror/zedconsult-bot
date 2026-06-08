@@ -134,12 +134,13 @@ def levels_kb(section):
 
 
 def countries_kb(section, level):
-    """Countries in section/level - with edit/delete buttons"""
+    """Countries in section/level - with reorder/edit/delete buttons"""
     countries = get_countries(section, level)
     rows = []
     for country_key, country in countries.items():
         country_name = country["name"]
         rows.append([country_name])
+        rows.append([f"⬆️ {country_name}", f"⬇️ {country_name}", f"🔢 {country_name}"])
         rows.append([f"✏️ {country_name}", f"❌ {country_name}"])
     rows.append([BTN_ADD_COUNTRY])
     rows.append([BTN_BACK])
@@ -253,7 +254,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return True
     
     # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode and mode != "edit_country":
+    if mode and mode not in ("edit_country", "reorder_country"):
         return await handle_input_mode(update, context, mode)
     
     # ===== BACK =====
@@ -1083,6 +1084,28 @@ async def handle_input_mode(update, context, mode):
         await message.reply_text(f"✅ Broadcast yuborildi!\n\n✅ Yuborildi: {sent}\n❌ Xato: {failed}")
         set_state(user_id, mode="")
         await navigate_to_screen(update, context, "main")
+        return True
+    
+    if mode == "reorder_country":
+        country_key = state.get("reorder_country_key")
+        country_name = state.get("reorder_country_name")
+        section = state.get("section")
+        level = state.get("level")
+        try:
+            pos = int(text.strip())
+            from courses import reorder_country
+            total = len(get_countries(section, level)) if section and level else 0
+            if pos < 1 or (total > 0 and pos > total):
+                await update.message.reply_text(f"❌ Raqam 1 dan {total} gacha bo'lishi kerak!")
+                return True
+            reorder_country(section, level, country_key, position=pos)
+            set_state(user_id, mode="")
+            await update.message.reply_text(
+                f"✅ {country_name} {pos}-o'ringa ko'chirildi!",
+                reply_markup=countries_kb(section, level)
+            )
+        except ValueError:
+            await update.message.reply_text("❌ Faqat raqam yuboring (masalan: 3)")
         return True
     
     if mode == "edit_welcome":

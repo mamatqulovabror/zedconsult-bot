@@ -1068,6 +1068,20 @@ async def handle_input_mode(update, context, mode):
         await navigate_to_screen(update, context, "main")
         return True
     
+    if mode == "edit_welcome":
+        from texts import save_custom_welcome
+        ok = save_custom_welcome(text, "uz")
+        if ok:
+            await update.message.reply_text(
+                "✅ *Kirish xabari saqlandi!*\n\nBarcha yangi foydalanuvchilar yangi xabarni ko'radi.",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Saqlashda xato yuz berdi.")
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, "main")
+        return True
+    
     return True
 
 

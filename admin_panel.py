@@ -472,29 +472,28 @@ async def handle_main_screen(update, context, text):
     
     if text == BTN_COURSE_MSG:
         from texts import get_course_config
+        from telegram import InlineKeyboardButton as IKB, InlineKeyboardMarkup as IKM
         cfg = get_course_config()
         current_text = cfg.get("locked_text_uz", "-")
         current_buy = cfg.get("buy_btn", "-")
+        extra = cfg.get("extra_buttons", [])
+        extra_list = "".join(["\n" + str(i+1) + ". " + b["name"] + " - $" + str(b["price"]) for i, b in enumerate(extra)])
         info = (
-            "💳 *Kurs xabarini tahrirlash*\n\n"
-            "*Hozirgi xabar matni:*\n" + current_text + "\n\n"
-            "*Hozirgi sotib olish tugmasi:* " + current_buy + "\n\n"
-            "Qaysi narsani tahrirlamoqchisiz?"
+            "\ud83d\udcb3 *Kurs xabarini tahrirlash*\n\n"
+            "*Xabar matni:*\n" + current_text + "\n\n"
+            "*Asosiy tugma:* " + current_buy + "\n"
+            "*Qo'shimcha buttonlar:*" + (extra_list if extra_list else " yo'q") + "\n\n"
+            "Tahrirlamoqchi bo'lgan bo'limni tanlang:"
         )
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from texts import get_course_config as _gcc
-        _ex = _gcc().get("extra_buttons", [])
-        _einfo = "\n\n*Qoshimcha buttonlar (" + str(len(_ex)) + " ta):*"
-        for _i, _b in enumerate(_ex):
-            _einfo += "\n" + str(_i+1) + ". " + _b["name"] + " - $" + _b["price"]
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📝 Xabar matni", callback_data="edit_course:locked_text")],
-            [InlineKeyboardButton("💳 Sotib olish tugmasi", callback_data="edit_course:buy_btn")],
-            [InlineKeyboardButton("➕ Button qoshish", callback_data="edit_course:add_btn")],
-            [InlineKeyboardButton("🗑 Button ochirish", callback_data="edit_course:del_btn")],
-            [InlineKeyboardButton("❌ Bekor", callback_data="edit_course:cancel")]
-        ])
-        await update.message.reply_text(info + _einfo, reply_markup=kb, parse_mode="Markdown")
+        _rows = [
+            [IKB("\ud83d\udcdd Xabar matni", callback_data="edit_course:locked_text")],
+            [IKB("\ud83d\udcb3 Asosiy tugma", callback_data="edit_course:buy_btn")],
+            [IKB("\u2795 Button qo'shish", callback_data="edit_course:add_btn")],
+        ]
+        if extra:
+            _rows.append([IKB("\ud83d\uddd1 Button o'chirish", callback_data="edit_course:del_btn")])
+        _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
+        await update.message.reply_text(info, reply_markup=IKM(_rows), parse_mode="Markdown")
         return True
     
     return True  # we're in admin panel, swallow other messages
@@ -1259,95 +1258,75 @@ async def handle_admin_callback(update, context):
     await query.answer()
     admin_id = query.from_user.id
     data = query.data
-    
-    if data == "su:cancel":
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
+
+    if data.startswith("del_ebtn:"):
+        _idx = int(data.split(":")[1])
+        from texts import get_course_config, save_course_config
+        _extra = get_course_config().get("extra_buttons", [])
+        if 0 <= _idx < len(_extra):
+            _removed = _extra.pop(_idx)
+            save_course_config("extra_buttons", _extra)
+            try: await query.message.delete()
+            except: pass
+            await context.bot.send_message(chat_id=query.message.chat.id, text="\u🗑 O'chirildi: " + _removed["name"] + " - $" + str(_removed["price"]))
         return True
-    
+
     if data.startswith("edit_course:"):
         action = data.split(":")[1]
         if action == "cancel":
             try: await query.message.delete()
             except: pass
             return True
-        elif action == "add_btn":
-            admin_id = query.from_user.id
-            set_state(admin_id, mode="add_extra_btn_name")
-            try: await query.message.delete()
-            except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="➕ Button nomini yozing:\nMisol: 💎 Premium obuna", reply_markup=cancel_kb())
-            return True
-        elif action == "del_btn":
-            admin_id = query.from_user.id
-            from texts import get_course_config
-            _extra = get_course_config().get("extra_buttons", [])
-            if not _extra:
-                await query.answer("Ochiriladigan button yoq!", show_alert=True)
-                return True
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-            _del_kb = InlineKeyboardMarkup([[InlineKeyboardButton(str(_i+1)+". "+_b["name"]+" - $"+_b["price"], callback_data="del_eb:"+str(_i))] for _i,_b in enumerate(_extra)] + [[InlineKeyboardButton("❌ Bekor", callback_data="edit_course:cancel")]])
-            try: await query.message.delete()
-            except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="🗑 Qaysi buttonni ochirish?", reply_markup=_del_kb)
-            return True
         elif action == "locked_text":
-            admin_id = query.from_user.id
             set_state(admin_id, mode="edit_course_text", edit_course_key="locked_text_uz")
             try: await query.message.delete()
             except: pass
             from texts import get_course_config
             current = get_course_config().get("locked_text_uz", "")
-            await context.bot.send_message(
-                chat_id=query.message.chat.id,
-                text="📝 Yangi xabar matnini yuboring:\n\n(Hozirgi: " + current[:100] + "...)",
-                reply_markup=cancel_kb()
-            )
+            await context.bot.send_message(chat_id=query.message.chat.id, text="\ud83d\udcdd Yangi xabar matnini yuboring:", reply_markup=cancel_kb())
         elif action == "buy_btn":
-            admin_id = query.from_user.id
             set_state(admin_id, mode="edit_course_text", edit_course_key="buy_btn")
             try: await query.message.delete()
             except: pass
             from texts import get_course_config
             current = get_course_config().get("buy_btn", "")
-            await context.bot.send_message(
-                chat_id=query.message.chat.id,
-                text="💳 Yangi tugma matnini yuboring:\n\n(Hozirgi: " + current + ")",
-                reply_markup=cancel_kb()
-            )
-        return True
-    
-    if data.startswith("del_eb:"):
-        _idx = int(data.split(":")[1])
-        from texts import remove_extra_button, get_course_config
-        _btns = get_course_config().get("extra_buttons", [])
-        _btn_name = _btns[_idx]["name"] if _idx < len(_btns) else "Button"
-        _ok = remove_extra_button(_idx)
-        try: await query.message.delete()
-        except: pass
-        await context.bot.send_message(chat_id=query.message.chat.id, text="✅ " + _btn_name + " ochirildi!" if _ok else "❌ Xato!")
+            await context.bot.send_message(chat_id=query.message.chat.id, text="\ud83d\udcb3 Yangi asosiy tugma matnini yuboring:\n(Hozirgi: " + current + ")", reply_markup=cancel_kb())
+        elif action == "add_btn":
+            set_state(admin_id, mode="add_extra_btn_name")
+            try: await query.message.delete()
+            except: pass
+            await context.bot.send_message(chat_id=query.message.chat.id, text="\u2795 Yangi button nomini yozing:\n(masalan: \ud83d\udc8e Premium obuna)", reply_markup=cancel_kb())
+        elif action == "del_btn":
+            from texts import get_course_config
+            _extra = get_course_config().get("extra_buttons", [])
+            if not _extra:
+                await query.answer("Qo'shimcha button yo'q!", show_alert=True)
+                return True
+            from telegram import InlineKeyboardButton as IKB, InlineKeyboardMarkup as IKM
+            _rows = [[IKB("\ud83d\uddd1 " + _b["name"] + " - $" + str(_b["price"]), callback_data="del_ebtn:" + str(_i))] for _i, _b in enumerate(_extra)]
+            _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
+            try: await query.message.delete()
+            except: pass
+            await context.bot.send_message(chat_id=query.message.chat.id, text="Qaysi buttonni o'chirasiz?", reply_markup=IKM(_rows))
         return True
 
-        if data.startswith("su:"):
+    if data == "su:cancel":
+        try: await query.message.delete()
+        except: pass
+        return True
+
+    if data.startswith("su:"):
         target_id = int(data.split(":")[1])
         set_state(admin_id, mode="send_user_msg", target_id=target_id)
         from data import user_db
         udata = user_db.get(target_id, {})
         fname = udata.get("first_name") or "User"
         uname = udata.get("username") or "-"
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
-        await context.bot.send_message(
-            chat_id=query.message.chat.id,
-            text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:",
-            reply_markup=cancel_kb()
-        )
+        try: await query.message.delete()
+        except: pass
+        await context.bot.send_message(chat_id=query.message.chat.id, text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:", reply_markup=cancel_kb())
         return True
-    
+
     return False
 
 

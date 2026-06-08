@@ -157,7 +157,8 @@ def get_course_config():
         "locked_text_uz": "🔒 Bu kontent faqat kurs sotib olganlar uchun.\n\n💳 Kursni sotib oling: *{price}*\n💎 Yoki Premium obuna: *{price_premium}*",
         "locked_text_en": "🔒 This content is for course buyers only.\n\n💳 Buy course: *{price}*\n💎 Or Premium: *{price_premium}*",
         "buy_btn": "💳 Kursni sotib olish",
-        "premium_btn": "💎 Premium obuna - ${price_premium}"
+        "premium_btn": "💎 Premium obuna - ${price_premium}",
+        "extra_buttons": []
     }
     try:
         if os.path.exists(COURSE_CONFIG_FILE):
@@ -184,6 +185,22 @@ def save_course_config(key, value):
         return True
     except:
         return False
+
+def add_extra_button(name, price):
+    """Add a custom button"""
+    data = get_course_config()
+    btns = data.get("extra_buttons", [])
+    btns.append({"name": name, "price": str(price)})
+    return save_course_config("extra_buttons", btns)
+
+def remove_extra_button(index):
+    """Remove button by index"""
+    data = get_course_config()
+    btns = data.get("extra_buttons", [])
+    if 0 <= index < len(btns):
+        btns.pop(index)
+        return save_course_config("extra_buttons", btns)
+    return False
 
 def t(user_id, key, **kwargs):
     from data import get_lang

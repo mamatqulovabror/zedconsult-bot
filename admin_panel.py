@@ -492,12 +492,14 @@ async def show_pending_payments(update, context):
         )
         return
     
+    # Header - ReplyKeyboard bilan
     await update.message.reply_text(
-        f"⏳ *KUTAYOTGAN TO'LOVLAR: {len(pending)} ta*",
+        f"⏳ *KUTAYOTGAN TO'LOVLAR: {len(pending)} ta*\n\nQuyida har biri alohida ko'rsatiladi:",
         reply_markup=payments_kb(),
         parse_mode="Markdown"
     )
     
+    # Har bir to'lov - InlineKeyboard bilan ALOHIDA xabar
     for pay_id, payment in list(pending.items()):
         uid = payment.get("user_id")
         username = payment.get("username", "-")
@@ -512,7 +514,7 @@ async def show_pending_payments(update, context):
             course_id = payment.get("course_id", "")
             parts = course_id.split("_")
             if len(parts) >= 3:
-                type_text = f"📚 {parts[0].capitalize()} › {parts[1].capitalize()} › {'_'.join(parts[2:])}"
+                type_text = f"📚 {parts[0].capitalize()} · {parts[1].capitalize()} · {'_'.join(parts[2:])}"
             else:
                 type_text = f"📚 {course_id}"
         else:
@@ -520,11 +522,11 @@ async def show_pending_payments(update, context):
         
         msg = (
             f"👤 *{first_name}* (@{username})\n"
-            f"🆔 `{uid}`\n"
+            f"🆔 {uid}\n"
             f"💰 *${amount}*\n"
             f"📦 {type_text}\n"
             f"📅 {date}\n"
-            f"🧾 `{pay_id}`"
+            f"🧾 {pay_id}"
         )
         
         kb = InlineKeyboardMarkup([[
@@ -535,17 +537,37 @@ async def show_pending_payments(update, context):
         sc = payment.get("screenshot") or payment.get("screenshot_id")
         try:
             if sc:
-                await update.message.reply_photo(sc, caption=msg, reply_markup=kb, parse_mode="Markdown")
+                await context.bot.send_photo(
+                    chat_id=update.effective_chat.id,
+                    photo=sc,
+                    caption=msg,
+                    reply_markup=kb,
+                    parse_mode="Markdown"
+                )
             else:
-                await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=msg,
+                    reply_markup=kb,
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            print(f"Pending payment send error: {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=msg,
+                reply_markup=kb,
+                parse_mode="Markdown"
+            )
 async def show_approved_payments(update, context):
     from payments import get_approved_payments
     approved = get_approved_payments()
     
     if not approved:
-        await update.message.reply_text("✅ Tasdiqlangan to'lovlar yo'q", reply_markup=payments_kb())
+        await update.message.reply_text(
+            "✅ Tasdiqlangan to'lovlar yo'q",
+            reply_markup=payments_kb()
+        )
         return
     
     text = "✅ *TASDIQLANGAN TO'LOVLAR (oxirgi 15 ta):*\n\n"
@@ -563,7 +585,7 @@ async def show_approved_payments(update, context):
             course_id = payment.get("course_id", "")
             parts = course_id.split("_")
             if len(parts) >= 3:
-                type_text = f"📚 {parts[0].capitalize()} › {parts[1].capitalize()} › {'_'.join(parts[2:])}"
+                type_text = f"📚 {parts[0].capitalize()} · {parts[1].capitalize()} · {'_'.join(parts[2:])}"
             else:
                 type_text = f"📚 {course_id}"
         else:
@@ -573,7 +595,11 @@ async def show_approved_payments(update, context):
         text += f"   💰 ${amount} | {type_text}\n"
         text += f"   📅 {date}\n\n"
     
-    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
+    await update.message.reply_text(
+        text,
+        reply_markup=payments_kb(),
+        parse_mode="Markdown"
+    )
 async def show_payment_stats(update, context):
     stats = get_payment_stats()
     

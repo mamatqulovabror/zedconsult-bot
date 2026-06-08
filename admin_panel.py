@@ -256,7 +256,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return True
     
     # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode and mode not in ("edit_country", "reorder_country", "edit_course_text"):
+    if mode and mode not in ("edit_country", "reorder_country"):
         return await handle_input_mode(update, context, mode)
     
     # ===== BACK =====

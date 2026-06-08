@@ -518,9 +518,16 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     for photo in demo_photos:
         await context.bot.send_photo(chat_id, photo)
     
-    # Show buy button with back/home (only course - no premium here)
+    # Show buy button - use custom config if available
+    from texts import get_course_config
+    cfg = get_course_config()
+    buy_btn_text = cfg.get("buy_btn", "💳 Kursni sotib olish") + " - $" + str(COURSE_PRICE)
+    locked_text = cfg.get("locked_text_uz", t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE))
+    # Replace price placeholders if any
+    locked_text = locked_text.replace("{price}", str(COURSE_PRICE)).replace("{price_premium}", str(PREMIUM_PRICE))
+    
     buttons = [
-        [InlineKeyboardButton(f"💳 Kursni sotib olish - ${COURSE_PRICE}", callback_data=f"buy:course:{course_id}")],
+        [InlineKeyboardButton(buy_btn_text, callback_data=f"buy:course:{course_id}")],
         [
             InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
             InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
@@ -529,7 +536,7 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     
     await context.bot.send_message(
         chat_id,
-        t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE),
+        locked_text,
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )

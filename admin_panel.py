@@ -255,7 +255,25 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await navigate_to_screen(update, context, screen)
         return True
     
-    # ===== EDIT COURSE TEXT - handle immediately =====
+    # ===== ADD EXTRA BUTTON modes =====
+    if mode == "add_extra_btn_name" and text:
+        set_state(user_id, mode="add_extra_btn_price", extra_btn_name=text)
+        await update.message.reply_text("💰 Narxni kiriting (faqat raqam):\nMisol: 44", reply_markup=cancel_kb())
+        return True
+    if mode == "add_extra_btn_price" and text:
+        _btn_name = state.get("extra_btn_name", "Button")
+        try:
+            _price = int(text.strip())
+        except:
+            await update.message.reply_text("❌ Faqat raqam! Misol: 44")
+            return True
+        from texts import add_extra_button
+        _ok = add_extra_button(_btn_name, _price)
+        await update.message.reply_text("✅ " + _btn_name + " - $" + str(_price) + " qoshildi!" if _ok else "❌ Xato!", reply_markup=main_admin_kb())
+        set_state(user_id, mode="", screen="main")
+        return True
+
+        # ===== EDIT COURSE TEXT - handle immediately =====
     if mode == "edit_course_text" and text:
         key = state.get("edit_course_key", "locked_text_uz")
         from texts import save_course_config
@@ -464,12 +482,19 @@ async def handle_main_screen(update, context, text):
             "Qaysi narsani tahrirlamoqchisiz?"
         )
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from texts import get_course_config as _gcc
+        _ex = _gcc().get("extra_buttons", [])
+        _einfo = "\n\n*Qoshimcha buttonlar (" + str(len(_ex)) + " ta):*"
+        for _i, _b in enumerate(_ex):
+            _einfo += "\n" + str(_i+1) + ". " + _b["name"] + " - $" + _b["price"]
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("📝 Xabar matni", callback_data="edit_course:locked_text")],
             [InlineKeyboardButton("💳 Sotib olish tugmasi", callback_data="edit_course:buy_btn")],
+            [InlineKeyboardButton("➕ Button qoshish", callback_data="edit_course:add_btn")],
+            [InlineKeyboardButton("🗑 Button ochirish", callback_data="edit_course:del_btn")],
             [InlineKeyboardButton("❌ Bekor", callback_data="edit_course:cancel")]
         ])
-        await update.message.reply_text(info, reply_markup=kb, parse_mode="Markdown")
+        await update.message.reply_text(info + _einfo, reply_markup=kb, parse_mode="Markdown")
         return True
     
     return True  # we're in admin panel, swallow other messages
@@ -1248,6 +1273,26 @@ async def handle_admin_callback(update, context):
             try: await query.message.delete()
             except: pass
             return True
+        elif action == "add_btn":
+            admin_id = query.from_user.id
+            set_state(admin_id, mode="add_extra_btn_name")
+            try: await query.message.delete()
+            except: pass
+            await context.bot.send_message(chat_id=query.message.chat.id, text="➕ Button nomini yozing:\nMisol: 💎 Premium obuna", reply_markup=cancel_kb())
+            return True
+        elif action == "del_btn":
+            admin_id = query.from_user.id
+            from texts import get_course_config
+            _extra = get_course_config().get("extra_buttons", [])
+            if not _extra:
+                await query.answer("Ochiriladigan button yoq!", show_alert=True)
+                return True
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            _del_kb = InlineKeyboardMarkup([[InlineKeyboardButton(str(_i+1)+". "+_b["name"]+" - $"+_b["price"], callback_data="del_eb:"+str(_i))] for _i,_b in enumerate(_extra)] + [[InlineKeyboardButton("❌ Bekor", callback_data="edit_course:cancel")]])
+            try: await query.message.delete()
+            except: pass
+            await context.bot.send_message(chat_id=query.message.chat.id, text="🗑 Qaysi buttonni ochirish?", reply_markup=_del_kb)
+            return True
         elif action == "locked_text":
             admin_id = query.from_user.id
             set_state(admin_id, mode="edit_course_text", edit_course_key="locked_text_uz")
@@ -1274,7 +1319,18 @@ async def handle_admin_callback(update, context):
             )
         return True
     
-    if data.startswith("su:"):
+    if data.startswith("del_eb:"):
+        _idx = int(data.split(":")[1])
+        from texts import remove_extra_button, get_course_config
+        _btns = get_course_config().get("extra_buttons", [])
+        _btn_name = _btns[_idx]["name"] if _idx < len(_btns) else "Button"
+        _ok = remove_extra_button(_idx)
+        try: await query.message.delete()
+        except: pass
+        await context.bot.send_message(chat_id=query.message.chat.id, text="✅ " + _btn_name + " ochirildi!" if _ok else "❌ Xato!")
+        return True
+
+        if data.startswith("su:"):
         target_id = int(data.split(":")[1])
         set_state(admin_id, mode="send_user_msg", target_id=target_id)
         from data import user_db

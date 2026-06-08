@@ -27,6 +27,7 @@ BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
+BTN_COURSE_MSG = "💳 Kurs xabari"
 BTN_EXIT = "🚪 Chiqish"
 BTN_BACK = "🔙 Orqaga"
 
@@ -100,6 +101,7 @@ def main_admin_kb():
         [BTN_USERS, BTN_BOOKINGS],
         [BTN_ADMINS, BTN_BROADCAST],
         [BTN_SEND_USER, BTN_WELCOME_MSG],
+        [BTN_COURSE_MSG],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -421,6 +423,26 @@ async def handle_main_screen(update, context, text):
             reply_markup=cancel_kb(),
             parse_mode="Markdown"
         )
+        return True
+    
+    if text == BTN_COURSE_MSG:
+        from texts import get_course_config
+        cfg = get_course_config()
+        current_text = cfg.get("locked_text_uz", "-")
+        current_buy = cfg.get("buy_btn", "-")
+        info = (
+            "💳 *Kurs xabarini tahrirlash*\n\n"
+            "*Hozirgi xabar matni:*\n" + current_text + "\n\n"
+            "*Hozirgi sotib olish tugmasi:* " + current_buy + "\n\n"
+            "Qaysi narsani tahrirlamoqchisiz?"
+        )
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📝 Xabar matni", callback_data="edit_course:locked_text")],
+            [InlineKeyboardButton("💳 Sotib olish tugmasi", callback_data="edit_course:buy_btn")],
+            [InlineKeyboardButton("❌ Bekor", callback_data="edit_course:cancel")]
+        ])
+        await update.message.reply_text(info, reply_markup=kb, parse_mode="Markdown")
         return True
     
     return True  # we're in admin panel, swallow other messages
@@ -1146,6 +1168,22 @@ async def handle_input_mode(update, context, mode):
             await update.message.reply_text("❌ Faqat raqam yuboring (masalan: 3)")
         return True
     
+    if mode == "edit_course_text":
+        key = state.get("edit_course_key", "locked_text_uz")
+        from texts import save_course_config
+        ok = save_course_config(key, text)
+        if ok:
+            label = "Xabar matni" if "text" in key else "Tugma matni"
+            await update.message.reply_text(
+                "✅ *" + label + " saqlandi!*\nEndi mijozlar yangi xabarni ko'radi.",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Saqlashda xato!")
+        set_state(user_id, mode="")
+        await navigate_to_screen(update, context, "main")
+        return True
+    
     if mode == "edit_welcome":
         from texts import save_custom_welcome
         ok = save_custom_welcome(text, "uz")
@@ -1175,6 +1213,38 @@ async def handle_admin_callback(update, context):
             await query.message.delete()
         except Exception:
             pass
+        return True
+    
+    if data.startswith("edit_course:"):
+        action = data.split(":")[1]
+        if action == "cancel":
+            try: await query.message.delete()
+            except: pass
+            return True
+        elif action == "locked_text":
+            admin_id = query.from_user.id
+            set_state(admin_id, mode="edit_course_text", edit_course_key="locked_text_uz")
+            try: await query.message.delete()
+            except: pass
+            from texts import get_course_config
+            current = get_course_config().get("locked_text_uz", "")
+            await context.bot.send_message(
+                chat_id=query.message.chat.id,
+                text="📝 Yangi xabar matnini yuboring:\n\n(Hozirgi: " + current[:100] + "...)",
+                reply_markup=cancel_kb()
+            )
+        elif action == "buy_btn":
+            admin_id = query.from_user.id
+            set_state(admin_id, mode="edit_course_text", edit_course_key="buy_btn")
+            try: await query.message.delete()
+            except: pass
+            from texts import get_course_config
+            current = get_course_config().get("buy_btn", "")
+            await context.bot.send_message(
+                chat_id=query.message.chat.id,
+                text="💳 Yangi tugma matnini yuboring:\n\n(Hozirgi: " + current + ")",
+                reply_markup=cancel_kb()
+            )
         return True
     
     if data.startswith("su:"):

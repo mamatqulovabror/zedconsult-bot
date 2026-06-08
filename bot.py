@@ -797,8 +797,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
     
-    # Admin send user callback
-    if data.startswith("su:"):
+    # Admin callbacks
+    if data.startswith("su:") or data.startswith("edit_course:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
         return

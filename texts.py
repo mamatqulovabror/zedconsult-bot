@@ -118,7 +118,7 @@ TEXTS = {
 }
 
 
-WELCOME_FILE = "/mnt/data/welcome_text.json"
+WELCOME_FILE = "/data/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
     """Load custom welcome text if exists"""
@@ -148,7 +148,7 @@ def save_custom_welcome(text, lang="uz"):
     except:
         return False
 
-COURSE_CONFIG_FILE = "/mnt/data/course_config.json"
+COURSE_CONFIG_FILE = "/data/course_config.json"
 
 def get_course_config():
     """Load custom course locked config"""

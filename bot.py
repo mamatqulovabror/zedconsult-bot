@@ -796,7 +796,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_admin_callback(update, context)
         return
     
-        if data.startswith("buy:"):
+    if data.startswith("buy:"):
         parts = data.split(":")
         payment_type = parts[1]
         

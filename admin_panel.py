@@ -390,10 +390,24 @@ async def handle_main_screen(update, context, text):
         return True
     
     if text == BTN_SEND_USER:
-        set_state(user_id, mode="send_user_id")
+        from data import user_db
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        users_list = list(user_db.items())
+        if not users_list:
+            await update.message.reply_text("❌ Hech qanday user yo'q", reply_markup=main_admin_kb())
+            return True
+        buttons = []
+        for uid, udata in users_list[:40]:
+            uname = udata.get("username") or "-"
+            fname = udata.get("first_name") or "User"
+            buttons.append([InlineKeyboardButton(
+                str(fname) + " (@" + str(uname) + ") | " + str(uid),
+                callback_data="su:" + str(uid)
+            )])
+        buttons.append([InlineKeyboardButton("❌ Bekor", callback_data="su:cancel")])
         await update.message.reply_text(
-            "💬 *Userga xabar*\n\nUser ID ni yuboring:",
-            reply_markup=cancel_kb(),
+            "💬 *Userga xabar*\n\nQaysi userni tanlang (" + str(len(users_list)) + " ta):",
+            reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="Markdown"
         )
         return True
@@ -1147,6 +1161,41 @@ async def handle_input_mode(update, context, mode):
         return True
     
     return True
+
+
+# ============ ADMIN SEND USER CALLBACK ============
+async def handle_admin_callback(update, context):
+    query = update.callback_query
+    await query.answer()
+    admin_id = query.from_user.id
+    data = query.data
+    
+    if data == "su:cancel":
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        return True
+    
+    if data.startswith("su:"):
+        target_id = int(data.split(":")[1])
+        set_state(admin_id, mode="send_user_msg", target_id=target_id)
+        from data import user_db
+        udata = user_db.get(target_id, {})
+        fname = udata.get("first_name") or "User"
+        uname = udata.get("username") or "-"
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:",
+            reply_markup=cancel_kb()
+        )
+        return True
+    
+    return False
 
 
 # ============ APPROVE/REJECT COMMANDS ============

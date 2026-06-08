@@ -271,7 +271,18 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         set_state(user_id, mode="", screen="main")
         return True
     
-    # ===== INPUT MODES (text/photo/video for adding content) =====
+    # ===== EDIT COURSE TEXT =====
+    if mode == "edit_course_text" and text:
+        key = state.get("edit_course_key", "locked_text_uz")
+        from texts import save_course_config
+        ok = save_course_config(key, text)
+        label = "Xabar matni" if "text" in key else "Tugma matni"
+        msg = "\u2705 " + label + " saqlandi!" if ok else "\u274c Saqlashda xato!"
+        await update.message.reply_text(msg, reply_markup=main_admin_kb())
+        set_state(user_id, mode="", screen="main")
+        return True
+
+        # ===== INPUT MODES (text/photo/video for adding content) =====
     if mode and mode not in ("edit_country", "reorder_country"):
         return await handle_input_mode(update, context, mode)
     

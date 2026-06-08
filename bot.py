@@ -790,7 +790,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
     
-    if data.startswith("buy:"):
+    # Admin send user callback
+    if data.startswith("su:"):
+        from admin_panel import handle_admin_callback
+        await handle_admin_callback(update, context)
+        return
+    
+        if data.startswith("buy:"):
         parts = data.split(":")
         payment_type = parts[1]
         

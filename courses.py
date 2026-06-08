@@ -299,3 +299,39 @@ def seed_default_countries():
     
     if changed:
         save_courses(courses)
+
+
+def reorder_country(section, level, country_key, direction=None, position=None):
+    """Reorder country: direction='up'/'down' or position=int (1-indexed)"""
+    courses = load_courses()
+    try:
+        countries = courses["sections"][section]["levels"][level]["countries"]
+    except KeyError:
+        return False
+    
+    keys = list(countries.keys())
+    if country_key not in keys:
+        return False
+    
+    idx = keys.index(country_key)
+    
+    if direction == "up":
+        if idx == 0:
+            return False  # already first
+        keys[idx], keys[idx-1] = keys[idx-1], keys[idx]
+    elif direction == "down":
+        if idx == len(keys) - 1:
+            return False  # already last
+        keys[idx], keys[idx+1] = keys[idx+1], keys[idx]
+    elif position is not None:
+        pos = max(0, min(len(keys)-1, int(position)-1))  # 1-indexed to 0-indexed
+        keys.pop(idx)
+        keys.insert(pos, country_key)
+    else:
+        return False
+    
+    # Rebuild ordered dict
+    new_countries = {k: countries[k] for k in keys}
+    courses["sections"][section]["levels"][level]["countries"] = new_countries
+    save_courses(courses)
+    return True

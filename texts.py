@@ -151,6 +151,7 @@ def save_custom_welcome(text, lang="uz"):
 def t(user_id, key, **kwargs):
     from data import get_lang
     lang = get_lang(user_id)
+    # Check for custom welcome message
     if key == "welcome":
         custom = get_custom_welcome(lang)
         if custom:
@@ -159,4 +160,3 @@ def t(user_id, key, **kwargs):
     if kwargs:
         text = text.format(**kwargs)
     return text
-

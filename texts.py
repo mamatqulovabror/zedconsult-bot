@@ -118,9 +118,43 @@ TEXTS = {
 }
 
 
+WELCOME_FILE = "/mnt/data/welcome_text.json"
+
+def get_custom_welcome(lang="uz"):
+    """Load custom welcome text if exists"""
+    import json, os
+    try:
+        if os.path.exists(WELCOME_FILE):
+            with open(WELCOME_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get(lang) or data.get("uz")
+    except:
+        pass
+    return None
+
+def save_custom_welcome(text, lang="uz"):
+    """Save custom welcome text"""
+    import json, os
+    try:
+        data = {}
+        if os.path.exists(WELCOME_FILE):
+            with open(WELCOME_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        data[lang] = text
+        os.makedirs(os.path.dirname(WELCOME_FILE), exist_ok=True)
+        with open(WELCOME_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+        return True
+    except:
+        return False
+
 def t(user_id, key, **kwargs):
     from data import get_lang
     lang = get_lang(user_id)
+    if key == "welcome":
+        custom = get_custom_welcome(lang)
+        if custom:
+            return custom
     text = TEXTS.get(lang, TEXTS["uz"]).get(key, "")
     if kwargs:
         text = text.format(**kwargs)

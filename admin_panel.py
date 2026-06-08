@@ -655,7 +655,31 @@ async def handle_course_countries_screen(update, context, text):
     
     countries = get_countries(section, level)
     
-    # EDIT button - ask for new name
+    # REORDER UP
+    for country_key, country in countries.items():
+        if text == "⬆️ " + country["name"]:
+            from courses import reorder_country
+            reorder_country(section, level, country_key, direction="up")
+            await update.message.reply_text("⬆️ " + country["name"] + " yuqoriga kotarildi", reply_markup=countries_kb(section, level))
+            return True
+    
+    # REORDER DOWN
+    for country_key, country in countries.items():
+        if text == "⬇️ " + country["name"]:
+            from courses import reorder_country
+            reorder_country(section, level, country_key, direction="down")
+            await update.message.reply_text("⬇️ " + country["name"] + " pastga tushirildi", reply_markup=countries_kb(section, level))
+            return True
+    
+    # REORDER by NUMBER
+    for country_key, country in countries.items():
+        if text == "U0001f522 " + country["name"]:
+            total = len(get_countries(section, level))
+            set_state(user_id, mode="reorder_country", reorder_country_key=country_key, reorder_country_name=country["name"])
+            await update.message.reply_text("U0001f522 " + country["name"] + " uchun yangi orin raqamini yozing (1-" + str(total) + "):", reply_markup=cancel_kb())
+            return True
+    
+        # EDIT button - ask for new name
     for country_key, country in countries.items():
         if text == f"\u270f\ufe0f {country['name']}":
             set_state(user_id, mode="edit_country", edit_country_old=country_key)

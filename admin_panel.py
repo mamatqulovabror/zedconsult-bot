@@ -26,6 +26,7 @@ BTN_BOOKINGS = "📋 Bronlar"
 BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
+BTN_WELCOME_MSG = "🏠 Kirish xabari"
 BTN_EXIT = "🚪 Chiqish"
 BTN_BACK = "🔙 Orqaga"
 
@@ -98,7 +99,7 @@ def main_admin_kb():
         [BTN_GROUPS, BTN_STATS],
         [BTN_USERS, BTN_BOOKINGS],
         [BTN_ADMINS, BTN_BROADCAST],
-        [BTN_SEND_USER],
+        [BTN_SEND_USER, BTN_WELCOME_MSG],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -391,6 +392,17 @@ async def handle_main_screen(update, context, text):
         set_state(user_id, mode="send_user_id")
         await update.message.reply_text(
             "💬 *Userga xabar*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    if text == BTN_WELCOME_MSG:
+        from texts import get_custom_welcome, TEXTS
+        current = get_custom_welcome("uz") or TEXTS["uz"]["welcome"]
+        set_state(user_id, mode="edit_welcome")
+        await update.message.reply_text(
+            f"🏠 *Kirish xabarini tahrirlash*\n\n*Hozirgi xabar:*\n{current}\n\n✏️ Yangi xabarni yuboring:",
             reply_markup=cancel_kb(),
             parse_mode="Markdown"
         )

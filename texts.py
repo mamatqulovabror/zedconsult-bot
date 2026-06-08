@@ -148,6 +148,43 @@ def save_custom_welcome(text, lang="uz"):
     except:
         return False
 
+COURSE_CONFIG_FILE = "/mnt/data/course_config.json"
+
+def get_course_config():
+    """Load custom course locked config"""
+    import json, os
+    default = {
+        "locked_text_uz": "🔒 Bu kontent faqat kurs sotib olganlar uchun.\n\n💳 Kursni sotib oling: *{price}*\n💎 Yoki Premium obuna: *{price_premium}*",
+        "locked_text_en": "🔒 This content is for course buyers only.\n\n💳 Buy course: *{price}*\n💎 Or Premium: *{price_premium}*",
+        "buy_btn": "💳 Kursni sotib olish",
+        "premium_btn": "💎 Premium obuna - ${price_premium}"
+    }
+    try:
+        if os.path.exists(COURSE_CONFIG_FILE):
+            with open(COURSE_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Fill missing keys with defaults
+                for k, v in default.items():
+                    if k not in data:
+                        data[k] = v
+                return data
+    except:
+        pass
+    return default
+
+def save_course_config(key, value):
+    """Save one course config key"""
+    import json, os
+    data = get_course_config()
+    data[key] = value
+    try:
+        os.makedirs(os.path.dirname(COURSE_CONFIG_FILE), exist_ok=True)
+        with open(COURSE_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
 def t(user_id, key, **kwargs):
     from data import get_lang
     lang = get_lang(user_id)

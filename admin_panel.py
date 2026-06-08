@@ -255,6 +255,22 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await navigate_to_screen(update, context, screen)
         return True
     
+    # ===== EDIT COURSE TEXT - handle immediately =====
+    if mode == "edit_course_text" and text:
+        key = state.get("edit_course_key", "locked_text_uz")
+        from texts import save_course_config
+        ok = save_course_config(key, text)
+        if ok:
+            label = "Xabar matni" if "text" in key else "Tugma matni"
+            await update.message.reply_text(
+                "✅ " + label + " saqlandi!\nEndi mijozlar yangi xabarni koradi.",
+                reply_markup=main_admin_kb()
+            )
+        else:
+            await update.message.reply_text("❌ Saqlashda xato! Qayta urining.", reply_markup=main_admin_kb())
+        set_state(user_id, mode="", screen="main")
+        return True
+    
     # ===== INPUT MODES (text/photo/video for adding content) =====
     if mode and mode not in ("edit_country", "reorder_country"):
         return await handle_input_mode(update, context, mode)

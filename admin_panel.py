@@ -482,6 +482,7 @@ async def handle_payments_screen(update, context, text):
 
 
 async def show_pending_payments(update, context):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     pending = get_pending_payments()
     
     if not pending:
@@ -491,8 +492,12 @@ async def show_pending_payments(update, context):
         )
         return
     
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    await update.message.reply_text("\u23f3 *KUTAYOTGAN TO'LOVLAR: " + str(len(pending)) + " ta*", reply_markup=payments_kb(), parse_mode="Markdown")
+    await update.message.reply_text(
+        f"⏳ *KUTAYOTGAN TO'LOVLAR: {len(pending)} ta*",
+        reply_markup=payments_kb(),
+        parse_mode="Markdown"
+    )
+    
     for pay_id, payment in list(pending.items()):
         uid = payment.get("user_id")
         username = payment.get("username", "-")
@@ -500,16 +505,33 @@ async def show_pending_payments(update, context):
         payment_type = payment.get("type")
         amount = payment.get("amount")
         date = payment.get("date", "-")
+        
         if payment_type == "premium":
-            type_text = "\ud83d\udcce Premium obuna"
+            type_text = "💎 Premium obuna"
         elif payment_type == "course":
             course_id = payment.get("course_id", "")
             parts = course_id.split("_")
-            type_text = "\ud83d\udcda " + parts[0].capitalize() + " \u203a " + parts[1].capitalize() + " \u203a " + "_".join(parts[2:]) if len(parts) >= 3 else "\ud83d\udcda " + course_id
+            if len(parts) >= 3:
+                type_text = f"📚 {parts[0].capitalize()} › {parts[1].capitalize()} › {'_'.join(parts[2:])}"
+            else:
+                type_text = f"📚 {course_id}"
         else:
-            type_text = "\ud83d\udcde Konsultatsiya"
-        msg = "\ud83d\udc64 *" + str(first_name) + "* (@" + str(username) + ")\n\ud83c\udd94 `" + str(uid) + "`\n\ud83d\udcb0 *$" + str(amount) + "*\n\ud83d\udce6 " + str(type_text) + "\n\ud83d\udcc5 " + str(date) + "\n\ud83e\uddfe `" + str(pay_id) + "`"
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("\u2705 Tasdiqlash", callback_data="admin:approve:" + str(pay_id)), InlineKeyboardButton("\u274c Rad etish", callback_data="admin:reject:" + str(pay_id))]])
+            type_text = "📞 Konsultatsiya"
+        
+        msg = (
+            f"👤 *{first_name}* (@{username})\n"
+            f"🆔 `{uid}`\n"
+            f"💰 *${amount}*\n"
+            f"📦 {type_text}\n"
+            f"📅 {date}\n"
+            f"🧾 `{pay_id}`"
+        )
+        
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"admin:approve:{pay_id}"),
+            InlineKeyboardButton("❌ Rad etish", callback_data=f"admin:reject:{pay_id}")
+        ]])
+        
         sc = payment.get("screenshot") or payment.get("screenshot_id")
         try:
             if sc:
@@ -518,8 +540,6 @@ async def show_pending_payments(update, context):
                 await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
         except Exception:
             await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
-
-
 async def show_approved_payments(update, context):
     from payments import get_approved_payments
     approved = get_approved_payments()
@@ -529,27 +549,31 @@ async def show_approved_payments(update, context):
         return
     
     text = "✅ *TASDIQLANGAN TO'LOVLAR (oxirgi 15 ta):*\n\n"
+    
     for pay_id, payment in list(approved.items())[-15:]:
         username = payment.get("username", "-")
         first_name = payment.get("first_name", "User")
         payment_type = payment.get("type")
         amount = payment.get("amount")
         date = payment.get("date", "-")
+        
         if payment_type == "premium":
-            type_text = "\ud83d\udcce Premium obuna"
+            type_text = "💎 Premium obuna"
         elif payment_type == "course":
             course_id = payment.get("course_id", "")
             parts = course_id.split("_")
-            type_text = "\ud83d\udcda " + (parts[0] if parts[0] else "") + " › " + (parts[1] if len(parts)>1 else "") + " › " + "_".join(parts[2:]) if len(parts) >= 3 else "\ud83d\udcda " + course_id
+            if len(parts) >= 3:
+                type_text = f"📚 {parts[0].capitalize()} › {parts[1].capitalize()} › {'_'.join(parts[2:])}"
+            else:
+                type_text = f"📚 {course_id}"
         else:
-            type_text = "\ud83d\udcde Konsultatsiya"
-        text += "\u2705 *" + str(first_name) + "* (@" + str(username) + ")\n"
-        text += "   \ud83d\udcb0 $" + str(amount) + " | " + str(type_text) + "\n"
-        text += "   \ud83d\udcc5 " + str(date) + "\n\n"
+            type_text = "📞 Konsultatsiya"
+        
+        text += f"✅ *{first_name}* (@{username})\n"
+        text += f"   💰 ${amount} | {type_text}\n"
+        text += f"   📅 {date}\n\n"
+    
     await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
-    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
-
-
 async def show_payment_stats(update, context):
     stats = get_payment_stats()
     

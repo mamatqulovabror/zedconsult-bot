@@ -534,9 +534,9 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
         ]
     ]
     
+    buttons = _rows
     await context.bot.send_message(
         chat_id,
-    buttons = _rows
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )

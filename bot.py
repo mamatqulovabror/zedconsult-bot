@@ -843,43 +843,44 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         
         elif payment_type == "course":
-            course_id = parts[2] if len(parts) > 2 else None
-            if not course_id:
-                return
-            
-            if user_id not in users:
-                users[user_id] = {}
-            clear(user_id)
-            users[user_id]["step"] = "payment_screenshot"
-            users[user_id]["payment_type"] = "course"
-            users[user_id]["course_id"] = course_id
-            
-            # Build payment info message
-            payment_text = (
-                f"💳 *To'lov ma'lumotlari*\n\n"
-                f"📋 *Karta:* {CARD}\n"
-                f"👤 *Egasi:* Abrorbek M.\n"
-                f"💰 *Summa:* ${COURSE_PRICE}\n\n"
-                f"✅ *To'lov usullari:*\n"
-                f"• 💳 Click\n"
-                f"• 💳 Payme\n"
-                f"• 💳 Uzumbank\n"
-                f"• 💳 Alifmobi\n"
-                f"• 💳 Paynet\n"
-                f"• 💳 Hazna\n"
-                f"• 💳 Zumrad\n\n"
-                f"📸 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
-            )
-            
-            await query.message.reply_text(
-                payment_text,
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
-                ]]),
-                parse_mode="Markdown"
-            )
-    
-    elif data == "course:back":
+            try:
+                course_id = parts[2] if len(parts) > 2 else None
+                if not course_id:
+                    await query.message.reply_text("Xato: kurs topilmadi")
+                    return
+                if user_id not in users:
+                    users[user_id] = {}
+                users[user_id].clear()
+                users[user_id]["step"] = "payment_screenshot"
+                users[user_id]["payment_type"] = "course"
+                users[user_id]["course_id"] = course_id
+                pay_msg = (
+                    "💳 To'lov ma'lumotlari
+
+"
+                    + "Karta: " + str(CARD) + "
+"
+                    + "Egasi: Abrorbek M.
+"
+                    + "Summa: $" + str(COURSE_PRICE) + "
+
+"
+                    + "To'lov usullari: Click, Payme, Uzumbank, Alifmobi, Paynet, Hazna, Zumrad
+
+"
+                    + "To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
+                )
+                await query.message.reply_text(
+                    pay_msg,
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]])
+                )
+            except Exception as _pay_err:
+                try:
+                    await query.message.reply_text("Xato yuz berdi: " + str(_pay_err))
+                except:
+                    pass
+
+        elif data == "course:back":
         await query.message.delete()
         await context.bot.send_message(
             user_id,

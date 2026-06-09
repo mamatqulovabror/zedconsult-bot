@@ -479,10 +479,10 @@ async def handle_main_screen(update, context, text):
         extra = cfg.get("extra_buttons", [])
         extra_list = "".join(["\n" + str(i+1) + ". " + b["name"] + " - $" + str(b["price"]) for i, b in enumerate(extra)])
         info = (
-            "\ud83d\udcb3 *Kurs xabarini tahrirlash*\n\n"
-            "*Xabar matni:*\n" + current_text + "\n\n"
-            "*Asosiy tugma:* " + current_buy + "\n"
-            "*Qo'shimcha buttonlar:*" + (extra_list if extra_list else " yo'q") + "\n\n"
+            "\ud83d\udcb3 KURS XABARI\n\n"
+            "Xabar matni:\n" + current_text[:150] + "...\n\n"
+            "Asosiy tugma: " + current_buy + "\n"
+            "Qo'shimcha buttonlar:" + (extra_list if extra_list else " yo'q") + "\n\n"
             "Tahrirlamoqchi bo'lgan bo'limni tanlang:"
         )
         _rows = [
@@ -493,7 +493,8 @@ async def handle_main_screen(update, context, text):
         if extra:
             _rows.append([IKB("\ud83d\uddd1 Button o'chirish", callback_data="edit_course:del_btn")])
         _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
-        await update.message.reply_text(info, reply_markup=IKM(_rows), parse_mode="Markdown")
+        info_safe = info[:800] if len(info) > 800 else info
+        await update.message.reply_text(info_safe, reply_markup=IKM(_rows))
         return True
     
     return True  # we're in admin panel, swallow other messages

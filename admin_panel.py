@@ -281,7 +281,29 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         set_state(user_id, mode="", screen="main")
         return True
 
-        # ===== EDIT COURSE TEXT - handle immediately =====
+        # ===== ADD EXTRA BUTTON name =====
+    if mode == "add_extra_btn_name" and text:
+        set_state(user_id, mode="add_extra_btn_price", extra_btn_name=text)
+        await update.message.reply_text("💰 Narx kiriting (raqam): Masalan: 44", reply_markup=cancel_kb())
+        return True
+    
+    # ===== ADD EXTRA BUTTON price =====
+    if mode == "add_extra_btn_price" and text:
+        btn_name = state.get("extra_btn_name", "Button")
+        try:
+            price = int(text.strip())
+            from texts import get_course_config, save_course_config
+            cfg = get_course_config()
+            extra = cfg.get("extra_buttons", [])
+            extra.append({"name": btn_name, "price": price})
+            save_course_config("extra_buttons", extra)
+            set_state(user_id, mode="", screen="main")
+            await update.message.reply_text("✅ " + btn_name + " - $" + str(price) + " qo'shildi!", reply_markup=main_admin_kb())
+        except ValueError:
+            await update.message.reply_text("❌ Faqat raqam kiriting!", reply_markup=cancel_kb())
+        return True
+    
+    # ===== EDIT COURSE TEXT - handle immediately =====
     if mode == "edit_course_text" and text:
         key = state.get("edit_course_key", "locked_text_uz")
         from texts import save_course_config

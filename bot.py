@@ -847,6 +847,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not course_id:
                 return
             
+            if user_id not in users:
+                users[user_id] = {}
             clear(user_id)
             users[user_id]["step"] = "payment_screenshot"
             users[user_id]["payment_type"] = "course"

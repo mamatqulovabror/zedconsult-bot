@@ -527,9 +527,10 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     
     extra_btns = cfg.get("extra_buttons", [])
     buttons = [[InlineKeyboardButton(buy_btn_text, callback_data=f"buy:course:{course_id}")]]
-    for _eb in extra_btns:
+    for _idx, _eb in enumerate(extra_btns):
         _label = str(_eb["name"]) + " - $" + str(_eb["price"])
-        buttons.append([InlineKeyboardButton(_label, callback_data=f"buy:course:{course_id}")])
+        _price = str(_eb.get("price", COURSE_PRICE))
+        buttons.append([InlineKeyboardButton(_label, callback_data=f"buy:extra:{_idx}:{_price}")])
     buttons.append([
         InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
         InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
@@ -809,23 +810,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         payment_type = parts[1]
         
         if payment_type == "extra":
-            # extra button - show payment info
-            remaining = ":".join(parts[2:])
-            last_colon = remaining.rfind(":")
-            btn_label = remaining[:last_colon] if last_colon >= 0 else remaining
-            btn_price = remaining[last_colon+1:] if last_colon >= 0 else str(COURSE_PRICE)
+            _eb_idx = int(parts[2]) if len(parts) > 2 else 0
+            _eb_price = parts[3] if len(parts) > 3 else str(COURSE_PRICE)
+            from texts import get_course_config as _gcc
+            _extra = _gcc().get("extra_buttons", [])
+            _eb = _extra[_eb_idx] if _eb_idx < len(_extra) else {}
+            _eb_name = _eb.get("name", "Kurs") if _eb else "Kurs"
             from config import CARD, PAYMENT_METHODS
             pay_text = (
                 f"💳 *To'lov ma'lumotlari*\n\n"
-                f"📦 *{btn_label}*\n"
+                f"📦 *{_eb_name}*\n"
                 f"📋 *Karta:* `{CARD}`\n"
-                f"💰 *Summa:* ${btn_price}\n\n"
+                f"💰 *Summa:* ${_eb_price}\n\n"
                 f"📸 To'lov qilgach chekni yuboring."
             )
             clear(user_id)
             users[user_id]["step"] = "payment_screenshot"
             users[user_id]["payment_type"] = "course"
-            users[user_id]["course_id"] = btn_label
+            users[user_id]["course_id"] = _eb_name
             await query.message.reply_text(pay_text, parse_mode="Markdown", reply_markup=back_menu(user_id))
             return
         

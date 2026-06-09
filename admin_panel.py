@@ -255,6 +255,14 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await navigate_to_screen(update, context, screen)
         return True
     
+    # ===== MAIN MENU BUTTONS - always route to main screen regardless of mode =====
+    main_btns = [BTN_PAYMENTS, BTN_COURSES, BTN_GROUPS, BTN_STATS, BTN_USERS,
+                 BTN_BOOKINGS, BTN_ADMINS, BTN_BROADCAST, BTN_SEND_USER,
+                 BTN_WELCOME_MSG, BTN_COURSE_MSG]
+    if text in main_btns:
+        set_state(user_id, mode="", screen="main")
+        return await handle_main_screen(update, context, text)
+    
     # ===== ADD EXTRA BUTTON modes =====
     if mode == "add_extra_btn_name" and text:
         set_state(user_id, mode="add_extra_btn_price", extra_btn_name=text)
@@ -479,10 +487,10 @@ async def handle_main_screen(update, context, text):
         extra = cfg.get("extra_buttons", [])
         extra_list = "".join(["\n" + str(i+1) + ". " + b["name"] + " - $" + str(b["price"]) for i, b in enumerate(extra)])
         info = (
-            "\ud83d\udcb3 KURS XABARI\n\n"
-            "Xabar matni:\n" + current_text[:150] + "...\n\n"
-            "Asosiy tugma: " + current_buy + "\n"
-            "Qo'shimcha buttonlar:" + (extra_list if extra_list else " yo'q") + "\n\n"
+            "\ud83d\udcb3 *Kurs xabarini tahrirlash*\n\n"
+            "*Xabar matni:*\n" + current_text + "\n\n"
+            "*Asosiy tugma:* " + current_buy + "\n"
+            "*Qo'shimcha buttonlar:*" + (extra_list if extra_list else " yo'q") + "\n\n"
             "Tahrirlamoqchi bo'lgan bo'limni tanlang:"
         )
         _rows = [
@@ -493,8 +501,7 @@ async def handle_main_screen(update, context, text):
         if extra:
             _rows.append([IKB("\ud83d\uddd1 Button o'chirish", callback_data="edit_course:del_btn")])
         _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
-        info_safe = info[:800] if len(info) > 800 else info
-        await update.message.reply_text(info_safe, reply_markup=IKM(_rows))
+        await update.message.reply_text(info, reply_markup=IKM(_rows), parse_mode="Markdown")
         return True
     
     return True  # we're in admin panel, swallow other messages

@@ -1268,7 +1268,7 @@ async def handle_admin_callback(update, context):
             save_course_config("extra_buttons", _extra)
             try: await query.message.delete()
             except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="\u🗑 O'chirildi: " + _removed["name"] + " - $" + str(_removed["price"]))
+            await context.bot.send_message(chat_id=query.message.chat.id, text="O'chirildi: " + _removed["name"] + " - $" + str(_removed["price"]))
         return True
 
     if data.startswith("edit_course:"):

@@ -854,19 +854,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             # Build payment info message
             payment_text = (
-                "\U0001F4B3 *To'lov ma'lumotlari*\n\n"
-                "\U0001F4CB *Karta raqami:* " + str(CARD) + "\n"
-                "\U0001F464 *Egasi:* Abrorbek M.\n"
-                "\U0001F4B0 *Summa:* $" + str(COURSE_PRICE) + "\n\n"
-                "\U00002705 *To'lov usullari:*\n"
-                "\U0001F4B3 Click\n"
-                "\U0001F4B3 Payme\n"
-                "\U0001F4B3 Uzumbank\n"
-                "\U0001F4B3 Alifmobi\n"
-                "\U0001F4B3 Paynet\n"
-                "\U0001F4B3 Hazna\n"
-                "\U0001F4B3 Zumrad\n\n"
-                "\U0001F4F8 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
+                f"💳 *To'lov ma'lumotlari*\n\n"
+                f"📋 *Karta:* {CARD}\n"
+                f"👤 *Egasi:* Abrorbek M.\n"
+                f"💰 *Summa:* ${COURSE_PRICE}\n\n"
+                f"✅ *To'lov usullari:*\n"
+                f"• 💳 Click\n"
+                f"• 💳 Payme\n"
+                f"• 💳 Uzumbank\n"
+                f"• 💳 Alifmobi\n"
+                f"• 💳 Paynet\n"
+                f"• 💳 Hazna\n"
+                f"• 💳 Zumrad\n\n"
+                f"📸 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
             )
             
             await query.message.reply_text(

@@ -118,7 +118,9 @@ TEXTS = {
 }
 
 
-WELCOME_FILE = ("/data" if __import__("os").path.isdir("/data") else ".") + "/welcome_text.json"
+import os as _os_tx
+_DATA_DIR_TX = "/data" if _os_tx.path.isdir("/data") else "."
+WELCOME_FILE = _DATA_DIR_TX + "/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
     """Load custom welcome text if exists"""

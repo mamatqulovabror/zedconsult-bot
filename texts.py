@@ -118,7 +118,7 @@ TEXTS = {
 }
 
 
-WELCOME_FILE = "/data/welcome_text.json"
+WELCOME_FILE = _DATA_DIR_TX + "/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
     """Load custom welcome text if exists"""
@@ -148,7 +148,9 @@ def save_custom_welcome(text, lang="uz"):
     except:
         return False
 
-COURSE_CONFIG_FILE = "/data/course_config.json"
+import os as _os
+_DATA_DIR_TX = "/data" if _os.path.isdir("/data") else "."
+COURSE_CONFIG_FILE = _DATA_DIR_TX + "/course_config.json"
 
 def get_course_config():
     """Load custom course locked config"""

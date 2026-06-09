@@ -523,20 +523,21 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     cfg = get_course_config()
     buy_btn_text = cfg.get("buy_btn", "💳 Kursni sotib olish") + " - $" + str(COURSE_PRICE)
     locked_text = cfg.get("locked_text_uz", t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE))
-    # Replace price placeholders if any
     locked_text = locked_text.replace("{price}", str(COURSE_PRICE)).replace("{price_premium}", str(PREMIUM_PRICE))
     
-    buttons = [
-        [InlineKeyboardButton(buy_btn_text, callback_data=f"buy:course:{course_id}")],
-        [
-            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
-            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
-        ]
-    ]
+    extra_btns = cfg.get("extra_buttons", [])
+    buttons = [[InlineKeyboardButton(buy_btn_text, callback_data=f"buy:course:{course_id}")]]
+    for _eb in extra_btns:
+        _label = str(_eb["name"]) + " - $" + str(_eb["price"])
+        buttons.append([InlineKeyboardButton(_label, callback_data=f"buy:course:{course_id}")])
+    buttons.append([
+        InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+        InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+    ])
     
-    buttons = _rows
     await context.bot.send_message(
         chat_id,
+        locked_text,
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )

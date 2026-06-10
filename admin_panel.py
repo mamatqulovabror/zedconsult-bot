@@ -27,7 +27,6 @@ BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
-BTN_COURSE_MSG = "💳 Kurs xabari"
 BTN_EXIT = "🚪 Chiqish"
 BTN_BACK = "🔙 Orqaga"
 
@@ -101,7 +100,6 @@ def main_admin_kb():
         [BTN_USERS, BTN_BOOKINGS],
         [BTN_ADMINS, BTN_BROADCAST],
         [BTN_SEND_USER, BTN_WELCOME_MSG],
-        [BTN_COURSE_MSG],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -136,14 +134,13 @@ def levels_kb(section):
 
 
 def countries_kb(section, level):
-    """Countries in section/level - with reorder/edit/delete buttons"""
     countries = get_countries(section, level)
     rows = []
     for country_key, country in countries.items():
         country_name = country["name"]
         rows.append([country_name])
-        rows.append([f"⬆️ {country_name}", f"⬇️ {country_name}", f"🔢 {country_name}"])
-        rows.append([f"✏️ {country_name}", f"❌ {country_name}"])
+        rows.append(["⬆️ " + country_name, "⬇️ " + country_name, "🔢 " + country_name])
+        rows.append(["✏️ " + country_name, "❌ " + country_name])
     rows.append([BTN_ADD_COUNTRY])
     rows.append([BTN_BACK])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
@@ -255,83 +252,8 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await navigate_to_screen(update, context, screen)
         return True
     
-    # ===== MAIN MENU BUTTONS - always route to main screen regardless of mode =====
-    main_btns = [BTN_PAYMENTS, BTN_COURSES, BTN_GROUPS, BTN_STATS, BTN_USERS,
-                 BTN_BOOKINGS, BTN_ADMINS, BTN_BROADCAST, BTN_SEND_USER,
-                 BTN_WELCOME_MSG, BTN_COURSE_MSG]
-    if text in main_btns:
-        set_state(user_id, mode="", screen="main")
-        return await handle_main_screen(update, context, text)
-    
-    # ===== ADD EXTRA BUTTON modes =====
-    if mode == "add_extra_btn_name" and text:
-        set_state(user_id, mode="add_extra_btn_price", extra_btn_name=text)
-        await update.message.reply_text("💰 Narxni kiriting (faqat raqam):\nMisol: 44", reply_markup=cancel_kb())
-        return True
-    if mode == "add_extra_btn_price" and text:
-        _btn_name = state.get("extra_btn_name", "Button")
-        try:
-            _price = int(text.strip())
-        except:
-            await update.message.reply_text("❌ Faqat raqam! Misol: 44")
-            return True
-        from texts import add_extra_button
-        _ok = add_extra_button(_btn_name, _price)
-        await update.message.reply_text("✅ " + _btn_name + " - $" + str(_price) + " qoshildi!" if _ok else "❌ Xato!", reply_markup=main_admin_kb())
-        set_state(user_id, mode="", screen="main")
-        return True
-
-        # ===== ADD EXTRA BUTTON name =====
-    if mode == "add_extra_btn_name" and text:
-        set_state(user_id, mode="add_extra_btn_price", extra_btn_name=text)
-        await update.message.reply_text("💰 Narx kiriting (raqam): Masalan: 44", reply_markup=cancel_kb())
-        return True
-    
-    # ===== ADD EXTRA BUTTON price =====
-    if mode == "add_extra_btn_price" and text:
-        btn_name = state.get("extra_btn_name", "Button")
-        try:
-            price = int(text.strip())
-            from texts import get_course_config, save_course_config
-            cfg = get_course_config()
-            extra = cfg.get("extra_buttons", [])
-            extra.append({"name": btn_name, "price": price})
-            save_course_config("extra_buttons", extra)
-            set_state(user_id, mode="", screen="main")
-            await update.message.reply_text("✅ " + btn_name + " - $" + str(price) + " qo'shildi!", reply_markup=main_admin_kb())
-        except ValueError:
-            await update.message.reply_text("❌ Faqat raqam kiriting!", reply_markup=cancel_kb())
-        return True
-    
-    # ===== EDIT COURSE TEXT - handle immediately =====
-    if mode == "edit_course_text" and text:
-        key = state.get("edit_course_key", "locked_text_uz")
-        from texts import save_course_config
-        ok = save_course_config(key, text)
-        if ok:
-            label = "Xabar matni" if "text" in key else "Tugma matni"
-            await update.message.reply_text(
-                "✅ " + label + " saqlandi!\nEndi mijozlar yangi xabarni koradi.",
-                reply_markup=main_admin_kb()
-            )
-        else:
-            await update.message.reply_text("❌ Saqlashda xato! Qayta urining.", reply_markup=main_admin_kb())
-        set_state(user_id, mode="", screen="main")
-        return True
-    
-    # ===== EDIT COURSE TEXT =====
-    if mode == "edit_course_text" and text:
-        key = state.get("edit_course_key", "locked_text_uz")
-        from texts import save_course_config
-        ok = save_course_config(key, text)
-        label = "Xabar matni" if "text" in key else "Tugma matni"
-        msg = "\u2705 " + label + " saqlandi!" if ok else "\u274c Saqlashda xato!"
-        await update.message.reply_text(msg, reply_markup=main_admin_kb())
-        set_state(user_id, mode="", screen="main")
-        return True
-
-        # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode and mode not in ("edit_country", "reorder_country"):
+    # ===== INPUT MODES (text/photo/video for adding content) =====
+    if mode and mode not in ("edit_country", "reorder_country", "edit_welcome"):
         return await handle_input_mode(update, context, mode)
     
     # ===== BACK =====
@@ -471,7 +393,7 @@ async def handle_main_screen(update, context, text):
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         users_list = list(user_db.items())
         if not users_list:
-            await update.message.reply_text("❌ Hech qanday user yo'q", reply_markup=main_admin_kb())
+            await update.message.reply_text("Hech qanday user yoq", reply_markup=main_admin_kb())
             return True
         buttons = []
         for uid, udata in users_list[:40]:
@@ -481,11 +403,10 @@ async def handle_main_screen(update, context, text):
                 str(fname) + " (@" + str(uname) + ") | " + str(uid),
                 callback_data="su:" + str(uid)
             )])
-        buttons.append([InlineKeyboardButton("❌ Bekor", callback_data="su:cancel")])
+        buttons.append([InlineKeyboardButton("Bekor", callback_data="su:cancel")])
         await update.message.reply_text(
-            "💬 *Userga xabar*\n\nQaysi userni tanlang (" + str(len(users_list)) + " ta):",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown"
+            "Qaysi userni tanlang (" + str(len(users_list)) + " ta):",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
         return True
     
@@ -494,36 +415,9 @@ async def handle_main_screen(update, context, text):
         current = get_custom_welcome("uz") or TEXTS["uz"]["welcome"]
         set_state(user_id, mode="edit_welcome")
         await update.message.reply_text(
-            f"🏠 *Kirish xabarini tahrirlash*\n\n*Hozirgi xabar:*\n{current}\n\n✏️ Yangi xabarni yuboring:",
-            reply_markup=cancel_kb(),
-            parse_mode="Markdown"
+            "Kirish xabarini tahrirlash\n\nHozirgi:\n" + str(current) + "\n\nYangi xabarni yuboring:",
+            reply_markup=cancel_kb()
         )
-        return True
-    
-    if text == BTN_COURSE_MSG:
-        from texts import get_course_config
-        from telegram import InlineKeyboardButton as IKB, InlineKeyboardMarkup as IKM
-        cfg = get_course_config()
-        current_text = cfg.get("locked_text_uz", "-")
-        current_buy = cfg.get("buy_btn", "-")
-        extra = cfg.get("extra_buttons", [])
-        extra_list = "".join(["\n" + str(i+1) + ". " + b["name"] + " - $" + str(b["price"]) for i, b in enumerate(extra)])
-        info = (
-            "\ud83d\udcb3 *Kurs xabarini tahrirlash*\n\n"
-            "*Xabar matni:*\n" + current_text + "\n\n"
-            "*Asosiy tugma:* " + current_buy + "\n"
-            "*Qo'shimcha buttonlar:*" + (extra_list if extra_list else " yo'q") + "\n\n"
-            "Tahrirlamoqchi bo'lgan bo'limni tanlang:"
-        )
-        _rows = [
-            [IKB("\ud83d\udcdd Xabar matni", callback_data="edit_course:locked_text")],
-            [IKB("\ud83d\udcb3 Asosiy tugma", callback_data="edit_course:buy_btn")],
-            [IKB("\u2795 Button qo'shish", callback_data="edit_course:add_btn")],
-        ]
-        if extra:
-            _rows.append([IKB("\ud83d\uddd1 Button o'chirish", callback_data="edit_course:del_btn")])
-        _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
-        await update.message.reply_text(info, reply_markup=IKM(_rows), parse_mode="Markdown")
         return True
     
     return True  # we're in admin panel, swallow other messages
@@ -600,86 +494,69 @@ async def handle_payments_screen(update, context, text):
 
 
 async def show_pending_payments(update, context):
-    pending = get_pending_payments()
-    
-    if not pending:
-        await update.message.reply_text(
-            "⏳ Kutayotgan to'lovlar yo'q",
-            reply_markup=payments_kb()
-        )
-        return
-    
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    await update.message.reply_text("\u23f3 *KUTAYOTGAN TO'LOVLAR: " + str(len(pending)) + " ta*", reply_markup=payments_kb(), parse_mode="Markdown")
+    pending = get_pending_payments()
+    if not pending:
+        await update.message.reply_text("Kutayotgan tolovlar yoq", reply_markup=payments_kb())
+        return
+    await update.message.reply_text("Kutayotgan tolovlar: " + str(len(pending)) + " ta", reply_markup=payments_kb())
     for pay_id, payment in list(pending.items()):
         uid = payment.get("user_id")
-        username = payment.get("username", "-")
-        first_name = payment.get("first_name", "User")
-        payment_type = payment.get("type")
-        amount = payment.get("amount")
-        date = payment.get("date", "-")
-        if payment_type == "premium":
-            type_text = "\ud83d\udcce Premium obuna"
-        elif payment_type == "course":
-            course_id = payment.get("course_id", "")
-            parts = course_id.split("_")
-            type_text = "\ud83d\udcda " + parts[0].capitalize() + " \u203a " + parts[1].capitalize() + " \u203a " + "_".join(parts[2:]) if len(parts) >= 3 else "\ud83d\udcda " + course_id
-        else:
-            type_text = "\ud83d\udcde Konsultatsiya"
-        msg = "\ud83d\udc64 *" + str(first_name) + "* (@" + str(username) + ")\n\ud83c\udd94 `" + str(uid) + "`\n\ud83d\udcb0 *$" + str(amount) + "*\n\ud83d\udce6 " + str(type_text) + "\n\ud83d\udcc5 " + str(date) + "\n\ud83e\uddfe `" + str(pay_id) + "`"
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("\u2705 Tasdiqlash", callback_data="admin:approve:" + str(pay_id)), InlineKeyboardButton("\u274c Rad etish", callback_data="admin:reject:" + str(pay_id))]])
-        sc = payment.get("screenshot") or payment.get("screenshot_id")
-        try:
-            if sc:
-                await update.message.reply_photo(sc, caption=msg, reply_markup=kb, parse_mode="Markdown")
-            else:
-                await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(msg, reply_markup=kb, parse_mode="Markdown")
-
-
-async def show_approved_payments(update, context):
-    from payments import get_approved_payments
-    approved = get_approved_payments()
-    
-    if not approved:
-        await update.message.reply_text(
-            "Tasdiqlangan tolovlar yoq",
-            reply_markup=payments_kb()
-        )
-        return
-    
-    items = list(approved.items())[-15:]
-    text = "TASDIQLANGAN TOLOVLAR (oxirgi " + str(len(items)) + " ta):\n\n"
-    
-    for pay_id, payment in items:
         username = payment.get("username") or "-"
         first_name = payment.get("first_name") or "User"
         payment_type = payment.get("type") or ""
         amount = payment.get("amount") or "?"
         date = payment.get("date") or "-"
-        
         if payment_type == "premium":
             type_text = "Premium obuna"
         elif payment_type == "course":
             course_id = payment.get("course_id") or ""
             parts = course_id.split("_")
-            if len(parts) >= 3:
-                country = "_".join(parts[2:])
-                type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + country
-            else:
-                type_text = course_id
+            type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:]) if len(parts) >= 3 else course_id
         else:
             type_text = "Konsultatsiya"
-        
+        msg = str(first_name) + " (@" + str(username) + ")\n" + str(uid) + "\n$" + str(amount) + "\n" + type_text + "\n" + str(date) + "\n" + str(pay_id)
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("Tasdiqlash", callback_data="admin:approve:" + str(pay_id)),
+            InlineKeyboardButton("Rad etish", callback_data="admin:reject:" + str(pay_id))
+        ]])
+        sc = payment.get("screenshot") or payment.get("screenshot_id")
+        try:
+            if sc:
+                await context.bot.send_photo(chat_id=update.effective_chat.id, photo=sc, caption=msg, reply_markup=kb)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, reply_markup=kb)
+        except Exception:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, reply_markup=kb)
+
+
+async def show_approved_payments(update, context):
+    from payments import get_approved_payments
+    approved = get_approved_payments()
+    if not approved:
+        await update.message.reply_text("Tasdiqlangan tolovlar yoq", reply_markup=payments_kb())
+        return
+    text = "Tasdiqlangan tolovlar (oxirgi 15):\n\n"
+    for pay_id, payment in list(approved.items())[-15:]:
+        username = payment.get("username") or "-"
+        first_name = payment.get("first_name") or "User"
+        payment_type = payment.get("type") or ""
+        amount = payment.get("amount") or "?"
+        date = payment.get("date") or "-"
+        if payment_type == "course":
+            course_id = payment.get("course_id") or ""
+            parts = course_id.split("_")
+            type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:]) if len(parts) >= 3 else course_id
+        elif payment_type == "premium":
+            type_text = "Premium"
+        else:
+            type_text = "Konsultatsiya"
         text += str(first_name) + " (@" + str(username) + ")\n"
         text += "  $" + str(amount) + " | " + type_text + "\n"
         text += "  " + str(date) + "\n\n"
-    
-    try:
-        await update.message.reply_text(text, reply_markup=payments_kb())
-    except Exception as e:
-        await update.message.reply_text("Xato: " + str(e), reply_markup=payments_kb())
+    await update.message.reply_text(text, reply_markup=payments_kb())
+
+
 async def show_payment_stats(update, context):
     stats = get_payment_stats()
     
@@ -772,31 +649,7 @@ async def handle_course_countries_screen(update, context, text):
     
     countries = get_countries(section, level)
     
-    # REORDER UP
-    for country_key, country in countries.items():
-        if text == "⬆️ " + country["name"]:
-            from courses import reorder_country
-            reorder_country(section, level, country_key, direction="up")
-            await update.message.reply_text("⬆️ " + country["name"] + " yuqoriga kotarildi", reply_markup=countries_kb(section, level))
-            return True
-    
-    # REORDER DOWN
-    for country_key, country in countries.items():
-        if text == "⬇️ " + country["name"]:
-            from courses import reorder_country
-            reorder_country(section, level, country_key, direction="down")
-            await update.message.reply_text("⬇️ " + country["name"] + " pastga tushirildi", reply_markup=countries_kb(section, level))
-            return True
-    
-    # REORDER by NUMBER
-    for country_key, country in countries.items():
-        if text == "U0001f522 " + country["name"]:
-            total = len(get_countries(section, level))
-            set_state(user_id, mode="reorder_country", reorder_country_key=country_key, reorder_country_name=country["name"])
-            await update.message.reply_text("U0001f522 " + country["name"] + " uchun yangi orin raqamini yozing (1-" + str(total) + "):", reply_markup=cancel_kb())
-            return True
-    
-        # EDIT button - ask for new name
+    # EDIT button - ask for new name
     for country_key, country in countries.items():
         if text == f"\u270f\ufe0f {country['name']}":
             set_state(user_id, mode="edit_country", edit_country_old=country_key)
@@ -1235,46 +1088,20 @@ async def handle_input_mode(update, context, mode):
         try:
             pos = int(text.strip())
             from courses import reorder_country
-            total = len(get_countries(section, level)) if section and level else 0
-            if pos < 1 or (total > 0 and pos > total):
-                await update.message.reply_text(f"❌ Raqam 1 dan {total} gacha bo'lishi kerak!")
-                return True
             reorder_country(section, level, country_key, position=pos)
             set_state(user_id, mode="")
-            await update.message.reply_text(
-                f"✅ {country_name} {pos}-o'ringa ko'chirildi!",
-                reply_markup=countries_kb(section, level)
-            )
+            await update.message.reply_text(str(country_name) + " " + str(pos) + "-oringa kochdi!", reply_markup=countries_kb(section, level))
         except ValueError:
-            await update.message.reply_text("❌ Faqat raqam yuboring (masalan: 3)")
-        return True
-    
-    if mode == "edit_course_text":
-        key = state.get("edit_course_key", "locked_text_uz")
-        from texts import save_course_config
-        ok = save_course_config(key, text)
-        if ok:
-            label = "Xabar matni" if "text" in key else "Tugma matni"
-            await update.message.reply_text(
-                "✅ *" + label + " saqlandi!*\nEndi mijozlar yangi xabarni ko'radi.",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text("❌ Saqlashda xato!")
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, "main")
+            await update.message.reply_text("Faqat raqam yuboring!")
         return True
     
     if mode == "edit_welcome":
         from texts import save_custom_welcome
         ok = save_custom_welcome(text, "uz")
         if ok:
-            await update.message.reply_text(
-                "✅ *Kirish xabari saqlandi!*\n\nBarcha yangi foydalanuvchilar yangi xabarni ko'radi.",
-                parse_mode="Markdown"
-            )
+            await update.message.reply_text("Kirish xabari saqlandi!")
         else:
-            await update.message.reply_text("❌ Saqlashda xato yuz berdi.")
+            await update.message.reply_text("Xato!")
         set_state(user_id, mode="")
         await navigate_to_screen(update, context, "main")
         return True
@@ -1288,63 +1115,10 @@ async def handle_admin_callback(update, context):
     await query.answer()
     admin_id = query.from_user.id
     data = query.data
-
-    if data.startswith("del_ebtn:"):
-        _idx = int(data.split(":")[1])
-        from texts import get_course_config, save_course_config
-        _extra = get_course_config().get("extra_buttons", [])
-        if 0 <= _idx < len(_extra):
-            _removed = _extra.pop(_idx)
-            save_course_config("extra_buttons", _extra)
-            try: await query.message.delete()
-            except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="O'chirildi: " + _removed["name"] + " - $" + str(_removed["price"]))
-        return True
-
-    if data.startswith("edit_course:"):
-        action = data.split(":")[1]
-        if action == "cancel":
-            try: await query.message.delete()
-            except: pass
-            return True
-        elif action == "locked_text":
-            set_state(admin_id, mode="edit_course_text", edit_course_key="locked_text_uz")
-            try: await query.message.delete()
-            except: pass
-            from texts import get_course_config
-            current = get_course_config().get("locked_text_uz", "")
-            await context.bot.send_message(chat_id=query.message.chat.id, text="\ud83d\udcdd Yangi xabar matnini yuboring:", reply_markup=cancel_kb())
-        elif action == "buy_btn":
-            set_state(admin_id, mode="edit_course_text", edit_course_key="buy_btn")
-            try: await query.message.delete()
-            except: pass
-            from texts import get_course_config
-            current = get_course_config().get("buy_btn", "")
-            await context.bot.send_message(chat_id=query.message.chat.id, text="\ud83d\udcb3 Yangi asosiy tugma matnini yuboring:\n(Hozirgi: " + current + ")", reply_markup=cancel_kb())
-        elif action == "add_btn":
-            set_state(admin_id, mode="add_extra_btn_name")
-            try: await query.message.delete()
-            except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="\u2795 Yangi button nomini yozing:\n(masalan: \ud83d\udc8e Premium obuna)", reply_markup=cancel_kb())
-        elif action == "del_btn":
-            from texts import get_course_config
-            _extra = get_course_config().get("extra_buttons", [])
-            if not _extra:
-                await query.answer("Qo'shimcha button yo'q!", show_alert=True)
-                return True
-            from telegram import InlineKeyboardButton as IKB, InlineKeyboardMarkup as IKM
-            _rows = [[IKB("\ud83d\uddd1 " + _b["name"] + " - $" + str(_b["price"]), callback_data="del_ebtn:" + str(_i))] for _i, _b in enumerate(_extra)]
-            _rows.append([IKB("\u274c Bekor", callback_data="edit_course:cancel")])
-            try: await query.message.delete()
-            except: pass
-            await context.bot.send_message(chat_id=query.message.chat.id, text="Qaysi buttonni o'chirasiz?", reply_markup=IKM(_rows))
-        return True
-
     if data == "su:cancel":
         try: await query.message.delete()
         except: pass
         return True
-
     if data.startswith("su:"):
         target_id = int(data.split(":")[1])
         set_state(admin_id, mode="send_user_msg", target_id=target_id)
@@ -1354,9 +1128,12 @@ async def handle_admin_callback(update, context):
         uname = udata.get("username") or "-"
         try: await query.message.delete()
         except: pass
-        await context.bot.send_message(chat_id=query.message.chat.id, text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:", reply_markup=cancel_kb())
+        await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:",
+            reply_markup=cancel_kb()
+        )
         return True
-
     return False
 
 

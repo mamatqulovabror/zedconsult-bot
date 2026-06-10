@@ -118,12 +118,10 @@ TEXTS = {
 }
 
 
-import os as _os_tx
-_DATA_DIR_TX = "/data" if _os_tx.path.isdir("/data") else "."
-WELCOME_FILE = _DATA_DIR_TX + "/welcome_text.json"
+
+WELCOME_FILE = "/mnt/data/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
-    """Load custom welcome text if exists"""
     import json, os
     try:
         if os.path.exists(WELCOME_FILE):
@@ -135,7 +133,6 @@ def get_custom_welcome(lang="uz"):
     return None
 
 def save_custom_welcome(text, lang="uz"):
-    """Save custom welcome text"""
     import json, os
     try:
         data = {}
@@ -150,66 +147,9 @@ def save_custom_welcome(text, lang="uz"):
     except:
         return False
 
-import os as _os
-_DATA_DIR_TX = "/data" if _os.path.isdir("/data") else "."
-COURSE_CONFIG_FILE = _DATA_DIR_TX + "/course_config.json"
-
-def get_course_config():
-    """Load custom course locked config"""
-    import json, os
-    default = {
-        "locked_text_uz": "🔒 Bu kontent faqat kurs sotib olganlar uchun.\n\n💳 Kursni sotib oling: *{price}*\n💎 Yoki Premium obuna: *{price_premium}*",
-        "locked_text_en": "🔒 This content is for course buyers only.\n\n💳 Buy course: *{price}*\n💎 Or Premium: *{price_premium}*",
-        "buy_btn": "💳 Kursni sotib olish",
-        "premium_btn": "💎 Premium obuna - ${price_premium}",
-        "extra_buttons": []
-    }
-    try:
-        if os.path.exists(COURSE_CONFIG_FILE):
-            with open(COURSE_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # Fill missing keys with defaults
-                for k, v in default.items():
-                    if k not in data:
-                        data[k] = v
-                return data
-    except:
-        pass
-    return default
-
-def save_course_config(key, value):
-    """Save one course config key"""
-    import json, os
-    data = get_course_config()
-    data[key] = value
-    try:
-        os.makedirs(os.path.dirname(COURSE_CONFIG_FILE), exist_ok=True)
-        with open(COURSE_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except:
-        return False
-
-def add_extra_button(name, price):
-    """Add a custom button"""
-    data = get_course_config()
-    btns = data.get("extra_buttons", [])
-    btns.append({"name": name, "price": str(price)})
-    return save_course_config("extra_buttons", btns)
-
-def remove_extra_button(index):
-    """Remove button by index"""
-    data = get_course_config()
-    btns = data.get("extra_buttons", [])
-    if 0 <= index < len(btns):
-        btns.pop(index)
-        return save_course_config("extra_buttons", btns)
-    return False
-
 def t(user_id, key, **kwargs):
     from data import get_lang
     lang = get_lang(user_id)
-    # Check for custom welcome message
     if key == "welcome":
         custom = get_custom_welcome(lang)
         if custom:

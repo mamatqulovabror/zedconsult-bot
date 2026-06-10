@@ -518,27 +518,18 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     for photo in demo_photos:
         await context.bot.send_photo(chat_id, photo)
     
-    # Show buy button - use custom config if available
-    from texts import get_course_config
-    cfg = get_course_config()
-    buy_btn_text = cfg.get("buy_btn", "💳 Kursni sotib olish") + " - $" + str(COURSE_PRICE)
-    locked_text = cfg.get("locked_text_uz", t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE))
-    locked_text = locked_text.replace("{price}", str(COURSE_PRICE)).replace("{price_premium}", str(PREMIUM_PRICE))
-    
-    extra_btns = cfg.get("extra_buttons", [])
-    buttons = [[InlineKeyboardButton(buy_btn_text, callback_data=f"buy:course:{course_id}")]]
-    for _idx, _eb in enumerate(extra_btns):
-        _label = str(_eb["name"]) + " - $" + str(_eb["price"])
-        _price = str(_eb.get("price", COURSE_PRICE))
-        buttons.append([InlineKeyboardButton(_label, callback_data=f"buy:extra:{_idx}:{_price}")])
-    buttons.append([
-        InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
-        InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
-    ])
+    # Show buy button with back/home (only course - no premium here)
+    buttons = [
+        [InlineKeyboardButton(f"💳 Kursni sotib olish - ${COURSE_PRICE}", callback_data=f"buy:course:{course_id}")],
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+        ]
+    ]
     
     await context.bot.send_message(
         chat_id,
-        locked_text,
+        t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE),
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
@@ -799,8 +790,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
     
-    # Admin callbacks
-    if data.startswith("su:") or data.startswith("edit_course:"):
+    if data.startswith("su:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
         return
@@ -808,28 +798,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("buy:"):
         parts = data.split(":")
         payment_type = parts[1]
-        
-        if payment_type == "extra":
-            _eb_idx = int(parts[2]) if len(parts) > 2 else 0
-            _eb_price = parts[3] if len(parts) > 3 else str(COURSE_PRICE)
-            from texts import get_course_config as _gcc
-            _extra = _gcc().get("extra_buttons", [])
-            _eb = _extra[_eb_idx] if _eb_idx < len(_extra) else {}
-            _eb_name = _eb.get("name", "Kurs") if _eb else "Kurs"
-            from config import CARD, PAYMENT_METHODS
-            pay_text = (
-                f"💳 *To'lov ma'lumotlari*\n\n"
-                f"📦 *{_eb_name}*\n"
-                f"📋 *Karta:* `{CARD}`\n"
-                f"💰 *Summa:* ${_eb_price}\n\n"
-                f"📸 To'lov qilgach chekni yuboring."
-            )
-            clear(user_id)
-            users[user_id]["step"] = "payment_screenshot"
-            users[user_id]["payment_type"] = "course"
-            users[user_id]["course_id"] = _eb_name
-            await query.message.reply_text(pay_text, parse_mode="Markdown", reply_markup=back_menu(user_id))
-            return
         
         if payment_type == "premium":
             clear(user_id)
@@ -843,44 +811,41 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         
         elif payment_type == "course":
-            try:
-                course_id = parts[2] if len(parts) > 2 else None
-                if not course_id:
-                    await query.message.reply_text("Xato: kurs topilmadi")
-                    return
-                if user_id not in users:
-                    users[user_id] = {}
-                users[user_id].clear()
-                users[user_id]["step"] = "payment_screenshot"
-                users[user_id]["payment_type"] = "course"
-                users[user_id]["course_id"] = course_id
-                pay_msg = (
-                    "💳 To'lov ma'lumotlari
-
-"
-                    + "Karta: " + str(CARD) + "
-"
-                    + "Egasi: Abrorbek M.
-"
-                    + "Summa: $" + str(COURSE_PRICE) + "
-
-"
-                    + "To'lov usullari: Click, Payme, Uzumbank, Alifmobi, Paynet, Hazna, Zumrad
-
-"
-                    + "To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
-                )
-                await query.message.reply_text(
-                    pay_msg,
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]])
-                )
-            except Exception as _pay_err:
-                try:
-                    await query.message.reply_text("Xato yuz berdi: " + str(_pay_err))
-                except:
-                    pass
-
-        elif data == "course:back":
+            course_id = parts[2] if len(parts) > 2 else None
+            if not course_id:
+                return
+            
+            clear(user_id)
+            users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "course"
+            users[user_id]["course_id"] = course_id
+            
+            # Build payment info message
+            payment_text = (
+                f"💳 *To'lov ma'lumotlari*\n\n"
+                f"📋 *Karta raqami:* `{CARD}`\n"
+                f"👤 *Egasi:* Abrorbek M.\n"
+                f"💰 *Summa:* ${COURSE_PRICE}\n\n"
+                f"✅ *To'lov usullari:*\n"
+                f"• 💳 Click\n"
+                f"• 💳 Payme\n"
+                f"• 💳 Uzumbank\n"
+                f"• 💳 Alifmobi\n"
+                f"• 💳 Paynet\n"
+                f"• 💳 Hazna\n"
+                f"• 💳 Zumrad\n\n"
+                f"📸 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
+            )
+            
+            await query.message.reply_text(
+                payment_text,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+                ]]),
+                parse_mode="Markdown"
+            )
+    
+    elif data == "course:back":
         await query.message.delete()
         await context.bot.send_message(
             user_id,

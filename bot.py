@@ -751,13 +751,47 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e1:
                     print(f"edit_caption failed: {e1}")
                     try:
-                        await context.bot.send_message(SUPER_ADMIN_ID, f"✅ To'lov tasdiqlandi va kurs yuborildi! Pay ID: {pay_id}")
+                        await context.bot.send_message(SUPER_ADMIN_ID, f"✅ To'lov tasdiqlandi! Pay ID: {pay_id}")
                     except Exception:
                         pass
                 try:
-                    await query.answer("✅ Tasdiqlandi va kurs yuborildi", show_alert=False)
+                    await query.answer("✅ Tasdiqlandi", show_alert=False)
                 except Exception:
                     pass
+                # Ask super admin whether to notify other admins
+                from admins_db import get_all_admins
+                other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+                if other_admins:
+                    try:
+                        from payments import get_payment
+                        payment = get_payment(pay_id)
+                        uname = payment.get("username") or "-"
+                        fname = payment.get("first_name") or "User"
+                        amount = payment.get("amount") or "?"
+                        ptype = payment.get("type") or ""
+                        course_id = payment.get("course_id") or ""
+                        parts = course_id.split("_")
+                        if ptype == "course" and len(parts) >= 3:
+                            ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
+                        elif ptype == "premium":
+                            ptype_text = "Premium obuna"
+                        else:
+                            ptype_text = ptype
+                        notify_text = (
+                            "✅ To'lov tasdiqlandi!\n\n"
+                            "👤 " + fname + " (@" + uname + ")\n"
+                            "💰 $" + str(amount) + "\n"
+                            "📦 " + ptype_text + "\n\n"
+                            "Bu to'lovni boshqa adminlarga yuborasizmi?"
+                        )
+                        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+                        kb = InlineKeyboardMarkup([[
+                            InlineKeyboardButton("📤 Adminlarga yuborish", callback_data="notify_admins:" + pay_id),
+                            InlineKeyboardButton("➡️ Yubormaslik", callback_data="notify_admins:skip")
+                        ]])
+                        await context.bot.send_message(SUPER_ADMIN_ID, notify_text, reply_markup=kb)
+                    except Exception as e:
+                        print(f"notify prompt error: {e}")
             else:
                 try:
                     await query.answer("❌ Xato yuz berdi", show_alert=True)
@@ -790,6 +824,65 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
     
+    if data.startswith("notify_admins:"):
+        if user_id != SUPER_ADMIN_ID:
+            await query.answer("Faqat bosh admin!", show_alert=True)
+            return
+        pay_id_or_skip = data.split(":")[1]
+        await query.answer()
+        if pay_id_or_skip == "skip":
+            try:
+                await query.edit_message_text("➡️ Adminlarga yuborilmadi.")
+            except Exception:
+                pass
+            return
+        # Send payment info to all other admins
+        pay_id = pay_id_or_skip
+        from admins_db import get_all_admins
+        from payments import get_payment
+        payment = get_payment(pay_id)
+        if not payment:
+            await query.edit_message_text("❌ To'lov topilmadi")
+            return
+        uname = payment.get("username") or "-"
+        fname = payment.get("first_name") or "User"
+        uid = payment.get("user_id")
+        amount = payment.get("amount") or "?"
+        date = payment.get("date") or "-"
+        ptype = payment.get("type") or ""
+        course_id = payment.get("course_id") or ""
+        parts = course_id.split("_")
+        if ptype == "course" and len(parts) >= 3:
+            ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
+        elif ptype == "premium":
+            ptype_text = "Premium obuna"
+        else:
+            ptype_text = ptype
+        msg = (
+            "✅ Yangi to'lov tasdiqlandi!\n\n"
+            "👤 " + fname + " (@" + uname + ") | " + str(uid) + "\n"
+            "💰 $" + str(amount) + "\n"
+            "📦 " + ptype_text + "\n"
+            "📅 " + str(date)
+        )
+        other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+        sent = 0
+        for admin_id in other_admins:
+            try:
+                sc = payment.get("screenshot") or payment.get("screenshot_id")
+                if sc:
+                    await context.bot.send_photo(chat_id=admin_id, photo=sc, caption=msg)
+                else:
+                    await context.bot.send_message(chat_id=admin_id, text=msg)
+                sent += 1
+            except Exception as e:
+                print(f"Failed to notify admin {admin_id}: {e}")
+        try:
+            await query.edit_message_text("📤 " + str(sent) + " ta adminga yuborildi!")
+        except Exception:
+            pass
+        return
+
     if data.startswith("su:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)

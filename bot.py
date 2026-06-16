@@ -853,22 +853,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ptype_text = "Premium obuna"
         else:
             ptype_text = ptype
+        # Faqat kurs ma'lumotlari — skrinshot va profil YO'Q
         msg = (
             "✅ Yangi to'lov tasdiqlandi!\n\n"
-            "👤 " + fname + " (@" + uname + ") | " + str(uid) + "\n"
-            "💰 $" + str(amount) + "\n"
             "📦 " + ptype_text + "\n"
+            "💰 $" + str(amount) + "\n"
             "📅 " + str(date)
         )
         other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
         sent = 0
         for admin_id in other_admins:
             try:
-                sc = payment.get("screenshot") or payment.get("screenshot_id")
-                if sc:
-                    await context.bot.send_photo(chat_id=admin_id, photo=sc, caption=msg)
-                else:
-                    await context.bot.send_message(chat_id=admin_id, text=msg)
+                await context.bot.send_message(chat_id=admin_id, text=msg)
                 sent += 1
             except Exception as e:
                 print(f"Failed to notify admin {admin_id}: {e}")

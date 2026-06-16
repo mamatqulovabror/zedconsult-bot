@@ -784,7 +784,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             "📦 " + ptype_text + "\n\n"
                             "Bu to'lovni boshqa adminlarga yuborasizmi?"
                         )
-                        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
                         kb = InlineKeyboardMarkup([[
                             InlineKeyboardButton("📤 Adminlarga yuborish", callback_data="notify_admins:" + pay_id),
                             InlineKeyboardButton("➡️ Yubormaslik", callback_data="notify_admins:skip")

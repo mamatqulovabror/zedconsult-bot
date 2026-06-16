@@ -237,7 +237,6 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Check if premium
     if is_premium(user_id):
-        from subscriptions import load_subscriptions
         subs = load_subscriptions()
         user_data = subs.get(str(user_id), {})
         premium = user_data.get("premium", {})
@@ -759,11 +758,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception:
                     pass
                 # Ask super admin whether to notify other admins
-                from admins_db import get_all_admins
-                other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+                        other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
                 if other_admins:
                     try:
-                        from payments import get_payment
                         payment = get_payment(pay_id)
                         uname = payment.get("username") or "-"
                         fname = payment.get("first_name") or "User"
@@ -837,8 +834,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         # Send payment info to all other admins
         pay_id = pay_id_or_skip
-        from admins_db import get_all_admins
-        from payments import get_payment
         payment = get_payment(pay_id)
         if not payment:
             await query.edit_message_text("❌ To'lov topilmadi")

@@ -11,7 +11,7 @@ from data import users, user_db, bookings_db, register_user, get_lang, save_book
 from texts import t
 from keyboards import main_menu, back_menu, phone_keyboard, language_keyboard, level_keyboard, country_keyboard, course_action_keyboard, payment_keyboard
 from slots import ALL_SLOTS, generate_dates
-from admins_db import is_admin
+from admins_db import is_admin, get_all_admins
 
 # Import new systems
 from payments import create_payment, get_pending_payments, approve_payment, reject_payment, get_payment
@@ -237,6 +237,7 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Check if premium
     if is_premium(user_id):
+        from subscriptions import load_subscriptions
         subs = load_subscriptions()
         user_data = subs.get(str(user_id), {})
         premium = user_data.get("premium", {})
@@ -758,7 +759,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception:
                     pass
                 # Ask super admin whether to notify other admins
-                        other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+                other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
                 if other_admins:
                     try:
                         payment = get_payment(pay_id)

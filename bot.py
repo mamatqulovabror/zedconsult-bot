@@ -532,11 +532,15 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
         dp_id, dp_cap = _media_parts(photo)
         await context.bot.send_photo(chat_id, dp_id, caption=dp_cap)
     
-    # Show buy button with back/home (only course - no premium here)
+    # Show expense/income (free) + buy button with back/home
     buttons = [
-        [InlineKeyboardButton(f"💳 Kursni sotib olish - ${COURSE_PRICE}", callback_data=f"buy:course:{course_id}")],
         [
-            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+            InlineKeyboardButton("💰 Harajat", callback_data="info:expense:" + course_id),
+            InlineKeyboardButton("💵 Daromad", callback_data="info:income:" + course_id)
+        ],
+        [InlineKeyboardButton("💳 Kursni sotib olish - $" + str(COURSE_PRICE), callback_data="buy:course:" + course_id)],
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data="nav:back_to_countries:" + section + ":" + level),
             InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
         ]
     ]
@@ -890,7 +894,39 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
 
-    if data.startswith("su:"):
+    # ============ FREE INFO: Harajat / Daromad ============
+    if data.startswith("info:"):
+        parts2 = data.split(":")
+        info_type = parts2[1]
+        info_course_id = parts2[2] if len(parts2) > 2 else None
+        from courses import get_course_by_id
+        info_course = get_course_by_id(info_course_id)
+        if not info_course:
+            await query.answer("❌ Topilmadi", show_alert=True)
+            return
+        info_data = info_course["data"]
+        content = info_data.get(info_type, {})
+        i_videos = content.get("videos", [])
+        i_text = content.get("text")
+        i_label = "💰 Harajat" if info_type == "expense" else "💵 Daromad"
+
+        if not i_videos and not i_text:
+            await query.answer(i_label + " uchun hali kontent qoshilmagan", show_alert=True)
+            return
+
+        await query.answer()
+        i_chat_id = query.message.chat.id
+
+        if i_text:
+            await context.bot.send_message(i_chat_id, i_label + "\n\n" + i_text, parse_mode="Markdown")
+
+        for i_idx, i_v in enumerate(i_videos):
+            iv_id, iv_cap = _media_parts(i_v)
+            i_caption = iv_cap if iv_cap else (i_label if i_idx == 0 and not i_text else None)
+            await context.bot.send_video(i_chat_id, iv_id, caption=i_caption)
+        return
+
+        if data.startswith("su:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
         return

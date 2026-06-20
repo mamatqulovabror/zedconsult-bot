@@ -926,7 +926,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_video(i_chat_id, iv_id, caption=i_caption)
         return
 
-        if data.startswith("su:"):
+    if data.startswith("su:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
         return

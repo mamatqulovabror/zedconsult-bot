@@ -128,14 +128,16 @@ def get_course_by_id(course_id):
     return None
 
 def set_demo_content(section, level, country, content_type, value, caption=None):
-    """Set demo content (video, text, or photo). For video/photo, value is file_id and caption is optional."""
+    """Set demo content (videos, text, or photos). For video/photo, value is file_id and caption is optional. Multiple videos/photos supported."""
     courses = load_courses()
     
     try:
         course = courses["sections"][section]["levels"][level]["countries"][country]
         
         if content_type == "video":
-            course["demo"]["video"] = {"file_id": value, "caption": caption or ""}
+            if "videos" not in course["demo"]:
+                course["demo"]["videos"] = []
+            course["demo"]["videos"].append({"file_id": value, "caption": caption or ""})
         elif content_type == "text":
             course["demo"]["text"] = value
         elif content_type == "photo":
@@ -172,12 +174,18 @@ def set_full_content(section, level, country, content_type, value, caption=None)
         return False
 
 def delete_demo_content(section, level, country, content_type, index=None):
-    """Delete demo content (video, text, or photos)"""
+    """Delete demo content (videos, text, or photos). index=None deletes all; index=int deletes one."""
     courses = load_courses()
     try:
         course = courses["sections"][section]["levels"][level]["countries"][country]
         if content_type == "video":
-            course["demo"]["video"] = None
+            if index is None:
+                course["demo"]["videos"] = []
+            else:
+                vids = course["demo"].get("videos", [])
+                if 0 <= index < len(vids):
+                    vids.pop(index)
+                    course["demo"]["videos"] = vids
         elif content_type == "text":
             course["demo"]["text"] = None
         elif content_type == "photo":

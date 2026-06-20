@@ -750,7 +750,7 @@ async def handle_course_content_screen(update, context, text):
     
     if text == BTN_DEL_DEMO_VIDEO:
         if delete_demo_content(section, level, country, "video"):
-            await update.message.reply_text("✅ Demo video o'chirildi", reply_markup=country_content_kb())
+            await update.message.reply_text("✅ Barcha demo videolar o'chirildi", reply_markup=country_content_kb())
         else:
             await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
         return True
@@ -952,8 +952,10 @@ async def handle_input_mode(update, context, mode):
     if mode == "add_demo_video" and message.video:
         section, level, country = state.get("section"), state.get("level"), state.get("country")
         set_demo_content(section, level, country, "video", message.video.file_id, caption=message.caption)
+        course = get_course(section, level, country)
+        total = len(course.get("demo", {}).get("videos", [])) if course else 0
         set_state(user_id, mode="")
-        await message.reply_text("✅ Demo video qo'shildi!")
+        await message.reply_text(f"✅ Demo video qo'shildi! (Jami: {total} ta)\n\nYana video yuborishingiz mumkin yoki ortga qaytishingiz mumkin.")
         await navigate_to_screen(update, context, "course_content")
         return True
     

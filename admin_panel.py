@@ -951,7 +951,7 @@ async def handle_input_mode(update, context, mode):
     
     if mode == "add_demo_video" and message.video:
         section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_demo_content(section, level, country, "video", message.video.file_id)
+        set_demo_content(section, level, country, "video", message.video.file_id, caption=message.caption)
         set_state(user_id, mode="")
         await message.reply_text("✅ Demo video qo'shildi!")
         await navigate_to_screen(update, context, "course_content")
@@ -959,7 +959,7 @@ async def handle_input_mode(update, context, mode):
     
     if mode == "add_demo_photo" and message.photo:
         section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_demo_content(section, level, country, "photo", message.photo[-1].file_id)
+        set_demo_content(section, level, country, "photo", message.photo[-1].file_id, caption=message.caption)
         set_state(user_id, mode="")
         await message.reply_text("✅ Demo rasm qo'shildi!")
         await navigate_to_screen(update, context, "course_content")
@@ -976,7 +976,7 @@ async def handle_input_mode(update, context, mode):
     
     if mode == "add_full_video" and message.video:
         section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_full_content(section, level, country, "video", message.video.file_id)
+        set_full_content(section, level, country, "video", message.video.file_id, caption=message.caption)
         set_state(user_id, mode="")
         await message.reply_text("✅ To'liq kurs video qo'shildi!")
         await navigate_to_screen(update, context, "course_content")
@@ -984,7 +984,7 @@ async def handle_input_mode(update, context, mode):
     
     if mode == "add_full_photo" and message.photo:
         section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_full_content(section, level, country, "photo", message.photo[-1].file_id)
+        set_full_content(section, level, country, "photo", message.photo[-1].file_id, caption=message.caption)
         set_state(user_id, mode="")
         await message.reply_text("✅ To'liq kurs rasm qo'shildi!")
         await navigate_to_screen(update, context, "course_content")

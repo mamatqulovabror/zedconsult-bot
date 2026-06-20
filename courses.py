@@ -127,29 +127,29 @@ def get_course_by_id(course_id):
                     }
     return None
 
-def set_demo_content(section, level, country, content_type, value):
-    """Set demo content (video, text, or photo)"""
+def set_demo_content(section, level, country, content_type, value, caption=None):
+    """Set demo content (video, text, or photo). For video/photo, value is file_id and caption is optional."""
     courses = load_courses()
     
     try:
         course = courses["sections"][section]["levels"][level]["countries"][country]
         
         if content_type == "video":
-            course["demo"]["video"] = value
+            course["demo"]["video"] = {"file_id": value, "caption": caption or ""}
         elif content_type == "text":
             course["demo"]["text"] = value
         elif content_type == "photo":
             if "photos" not in course["demo"]:
                 course["demo"]["photos"] = []
-            course["demo"]["photos"].append(value)
+            course["demo"]["photos"].append({"file_id": value, "caption": caption or ""})
         
         save_courses(courses)
         return True
     except:
         return False
 
-def set_full_content(section, level, country, content_type, value):
-    """Set full course content (videos, text, photos)"""
+def set_full_content(section, level, country, content_type, value, caption=None):
+    """Set full course content (videos, text, photos). For video/photo, value is file_id and caption is optional."""
     courses = load_courses()
     
     try:
@@ -158,13 +158,13 @@ def set_full_content(section, level, country, content_type, value):
         if content_type == "video":
             if "videos" not in course["full"]:
                 course["full"]["videos"] = []
-            course["full"]["videos"].append(value)
+            course["full"]["videos"].append({"file_id": value, "caption": caption or ""})
         elif content_type == "text":
             course["full"]["text"] = value
         elif content_type == "photo":
             if "photos" not in course["full"]:
                 course["full"]["photos"] = []
-            course["full"]["photos"].append(value)
+            course["full"]["photos"].append({"file_id": value, "caption": caption or ""})
         
         save_courses(courses)
         return True

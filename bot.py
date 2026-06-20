@@ -13,6 +13,12 @@ from keyboards import main_menu, back_menu, phone_keyboard, language_keyboard, l
 from slots import ALL_SLOTS, generate_dates
 from admins_db import is_admin, get_all_admins
 
+def _media_parts(item):
+    """Extract (file_id, caption) from media item - supports old plain string and new dict format."""
+    if isinstance(item, dict):
+        return item.get("file_id"), item.get("caption") or None
+    return item, None
+
 # Import new systems
 from payments import create_payment, get_pending_payments, approve_payment, reject_payment, get_payment
 from subscriptions import activate_premium, activate_course, is_premium, has_course_access, can_use_free_consult, use_free_consult, get_user_courses
@@ -292,14 +298,16 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Send VIDEOS
             for vid in full_videos:
                 try:
-                    await context.bot.send_video(user_id, vid)
+                    v_id, v_cap = _media_parts(vid)
+                    await context.bot.send_video(user_id, v_id, caption=v_cap)
                 except Exception as e:
                     print(f"Video error: {e}")
             
             # Send PHOTOS
             for ph in full_photos:
                 try:
-                    await context.bot.send_photo(user_id, ph)
+                    p_id, p_cap = _media_parts(ph)
+                    await context.bot.send_photo(user_id, p_id, caption=p_cap)
                 except Exception as e:
                     print(f"Photo error: {e}")
             
@@ -513,10 +521,12 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
         await context.bot.send_message(chat_id, t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
     
     if demo_video:
-        await context.bot.send_video(chat_id, demo_video, caption=t(user_id, "demo_content"))
+        dv_id, dv_cap = _media_parts(demo_video)
+        await context.bot.send_video(chat_id, dv_id, caption=dv_cap or t(user_id, "demo_content"))
     
     for photo in demo_photos:
-        await context.bot.send_photo(chat_id, photo)
+        dp_id, dp_cap = _media_parts(photo)
+        await context.bot.send_photo(chat_id, dp_id, caption=dp_cap)
     
     # Show buy button with back/home (only course - no premium here)
     buttons = [
@@ -550,10 +560,12 @@ async def send_full_course_inline(context, chat_id, user_id, course, course_id, 
         await context.bot.send_message(chat_id, full_text)
     
     for video in full_videos:
-        await context.bot.send_video(chat_id, video)
+        fv_id, fv_cap = _media_parts(video)
+        await context.bot.send_video(chat_id, fv_id, caption=fv_cap)
     
     for photo in full_photos:
-        await context.bot.send_photo(chat_id, photo)
+        fp_id, fp_cap = _media_parts(photo)
+        await context.bot.send_photo(chat_id, fp_id, caption=fp_cap)
     
     # Show back buttons
     buttons = [
@@ -1239,13 +1251,15 @@ async def handle_admin_approve_internal(context, pay_id):
                 
                 for vid in full_videos:
                     try:
-                        await context.bot.send_video(user_id, vid)
+                        v2_id, v2_cap = _media_parts(vid)
+                        await context.bot.send_video(user_id, v2_id, caption=v2_cap)
                     except Exception:
                         pass
                 
                 for ph in full_photos:
                     try:
-                        await context.bot.send_photo(user_id, ph)
+                        p2_id, p2_cap = _media_parts(ph)
+                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap)
                     except Exception:
                         pass
                 

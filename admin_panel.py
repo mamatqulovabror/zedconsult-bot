@@ -11,7 +11,7 @@ from data import user_db, bookings_db
 from payments import get_pending_payments, get_payment_stats, get_payment, approve_payment, reject_payment
 from subscriptions import get_subscription_stats, activate_premium, activate_course
 from group_links import get_all_links, set_country_link, delete_country_link, get_country_link
-from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course, delete_demo_content, delete_full_content
+from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course, delete_demo_content, delete_full_content, set_expense_content, set_income_content, delete_expense_content, delete_income_content
 
 # Admin panel state per user
 admin_state = {}
@@ -61,6 +61,14 @@ BTN_DEL_DEMO_PHOTO = "🗑 Demo rasm o'chir"
 BTN_DEL_FULL_VIDEO = "🗑 To'liq video o'chir"
 BTN_DEL_FULL_TEXT = "🗑 To'liq text o'chir"
 BTN_DEL_FULL_PHOTO = "🗑 To'liq rasm o'chir"
+BTN_ADD_EXPENSE_VIDEO = "🎥 Harajat video qo'shish"
+BTN_ADD_EXPENSE_TEXT = "📝 Harajat text qo'shish"
+BTN_DEL_EXPENSE_VIDEO = "🗑 Harajat video o'chir"
+BTN_DEL_EXPENSE_TEXT = "🗑 Harajat text o'chir"
+BTN_ADD_INCOME_VIDEO = "🎥 Daromad video qo'shish"
+BTN_ADD_INCOME_TEXT = "📝 Daromad text qo'shish"
+BTN_DEL_INCOME_VIDEO = "🗑 Daromad video o'chir"
+BTN_DEL_INCOME_TEXT = "🗑 Daromad text o'chir"
 
 # Groups submenu
 BTN_ADD_GROUP = "➕ Yangi guruh qo'shish"
@@ -152,6 +160,10 @@ def country_content_kb():
         [BTN_ADD_DEMO_VIDEO, BTN_DEL_DEMO_VIDEO],
         [BTN_ADD_DEMO_TEXT, BTN_DEL_DEMO_TEXT],
         [BTN_ADD_DEMO_PHOTO, BTN_DEL_DEMO_PHOTO],
+        [BTN_ADD_EXPENSE_VIDEO, BTN_DEL_EXPENSE_VIDEO],
+        [BTN_ADD_EXPENSE_TEXT, BTN_DEL_EXPENSE_TEXT],
+        [BTN_ADD_INCOME_VIDEO, BTN_DEL_INCOME_VIDEO],
+        [BTN_ADD_INCOME_TEXT, BTN_DEL_INCOME_TEXT],
         [BTN_ADD_FULL_VIDEO, BTN_DEL_FULL_VIDEO],
         [BTN_ADD_FULL_TEXT, BTN_DEL_FULL_TEXT],
         [BTN_ADD_FULL_PHOTO, BTN_DEL_FULL_PHOTO],
@@ -733,6 +745,26 @@ async def handle_course_content_screen(update, context, text):
         await update.message.reply_text("🖼 Demo rasm yuboring:", reply_markup=cancel_kb())
         return True
     
+    if text == BTN_ADD_EXPENSE_VIDEO:
+        set_state(user_id, mode="add_expense_video")
+        await update.message.reply_text("🎥 Harajat video yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_EXPENSE_TEXT:
+        set_state(user_id, mode="add_expense_text")
+        await update.message.reply_text("📝 Harajat text yozing:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_INCOME_VIDEO:
+        set_state(user_id, mode="add_income_video")
+        await update.message.reply_text("🎥 Daromad video yuboring:", reply_markup=cancel_kb())
+        return True
+    
+    if text == BTN_ADD_INCOME_TEXT:
+        set_state(user_id, mode="add_income_text")
+        await update.message.reply_text("📝 Daromad text yozing:", reply_markup=cancel_kb())
+        return True
+    
     if text == BTN_ADD_FULL_VIDEO:
         set_state(user_id, mode="add_full_video")
         await update.message.reply_text("🎥 To'liq kurs video yuboring:", reply_markup=cancel_kb())
@@ -765,6 +797,34 @@ async def handle_course_content_screen(update, context, text):
     if text == BTN_DEL_DEMO_PHOTO:
         if delete_demo_content(section, level, country, "photo"):
             await update.message.reply_text("✅ Demo rasmlar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_EXPENSE_VIDEO:
+        if delete_expense_content(section, level, country, "video"):
+            await update.message.reply_text("✅ Barcha harajat videolar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_EXPENSE_TEXT:
+        if delete_expense_content(section, level, country, "text"):
+            await update.message.reply_text("✅ Harajat text o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_INCOME_VIDEO:
+        if delete_income_content(section, level, country, "video"):
+            await update.message.reply_text("✅ Barcha daromad videolar o'chirildi", reply_markup=country_content_kb())
+        else:
+            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
+        return True
+    
+    if text == BTN_DEL_INCOME_TEXT:
+        if delete_income_content(section, level, country, "text"):
+            await update.message.reply_text("✅ Daromad text o'chirildi", reply_markup=country_content_kb())
         else:
             await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
         return True
@@ -973,6 +1033,42 @@ async def handle_input_mode(update, context, mode):
         set_full_content(section, level, country, "text", text)
         set_state(user_id, mode="")
         await message.reply_text("✅ To'liq kurs text qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_expense_video" and message.video:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_expense_content(section, level, country, "video", message.video.file_id, caption=message.caption)
+        ex_course = get_course(section, level, country)
+        ex_total = len(ex_course.get("expense", {}).get("videos", [])) if ex_course else 0
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Harajat video qo'shildi! (Jami: " + str(ex_total) + " ta)")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_expense_text" and text:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_expense_content(section, level, country, "text", text)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Harajat text qo'shildi!")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_income_video" and message.video:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_income_content(section, level, country, "video", message.video.file_id, caption=message.caption)
+        in_course = get_course(section, level, country)
+        in_total = len(in_course.get("income", {}).get("videos", [])) if in_course else 0
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Daromad video qo'shildi! (Jami: " + str(in_total) + " ta)")
+        await navigate_to_screen(update, context, "course_content")
+        return True
+    
+    if mode == "add_income_text" and text:
+        section, level, country = state.get("section"), state.get("level"), state.get("country")
+        set_income_content(section, level, country, "text", text)
+        set_state(user_id, mode="")
+        await message.reply_text("✅ Daromad text qo'shildi!")
         await navigate_to_screen(update, context, "course_content")
         return True
     

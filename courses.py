@@ -98,6 +98,14 @@ def add_country_to_course(section, level, country):
             "videos": [],
             "text": None,
             "photos": []
+        },
+        "expense": {
+            "videos": [],
+            "text": None
+        },
+        "income": {
+            "videos": [],
+            "text": None
         }
     }
     
@@ -172,6 +180,90 @@ def set_full_content(section, level, country, content_type, value, caption=None)
         return True
     except:
         return False
+
+def set_expense_content(section, level, country, content_type, value, caption=None):
+    """Set expense (Harajat) content - videos or text. Free content."""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if "expense" not in course:
+            course["expense"] = {"videos": [], "text": None}
+        if content_type == "video":
+            if "videos" not in course["expense"]:
+                course["expense"]["videos"] = []
+            course["expense"]["videos"].append({"file_id": value, "caption": caption or ""})
+        elif content_type == "text":
+            course["expense"]["text"] = value
+        save_courses(courses)
+        return True
+    except:
+        return False
+
+
+def set_income_content(section, level, country, content_type, value, caption=None):
+    """Set income (Daromad) content - videos or text. Free content."""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if "income" not in course:
+            course["income"] = {"videos": [], "text": None}
+        if content_type == "video":
+            if "videos" not in course["income"]:
+                course["income"]["videos"] = []
+            course["income"]["videos"].append({"file_id": value, "caption": caption or ""})
+        elif content_type == "text":
+            course["income"]["text"] = value
+        save_courses(courses)
+        return True
+    except:
+        return False
+
+
+def delete_expense_content(section, level, country, content_type, index=None):
+    """Delete expense content. index=None deletes all videos."""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if "expense" not in course:
+            return True
+        if content_type == "video":
+            if index is None:
+                course["expense"]["videos"] = []
+            else:
+                vids = course["expense"].get("videos", [])
+                if 0 <= index < len(vids):
+                    vids.pop(index)
+                    course["expense"]["videos"] = vids
+        elif content_type == "text":
+            course["expense"]["text"] = None
+        save_courses(courses)
+        return True
+    except Exception:
+        return False
+
+
+def delete_income_content(section, level, country, content_type, index=None):
+    """Delete income content. index=None deletes all videos."""
+    courses = load_courses()
+    try:
+        course = courses["sections"][section]["levels"][level]["countries"][country]
+        if "income" not in course:
+            return True
+        if content_type == "video":
+            if index is None:
+                course["income"]["videos"] = []
+            else:
+                vids = course["income"].get("videos", [])
+                if 0 <= index < len(vids):
+                    vids.pop(index)
+                    course["income"]["videos"] = vids
+        elif content_type == "text":
+            course["income"]["text"] = None
+        save_courses(courses)
+        return True
+    except Exception:
+        return False
+
 
 def delete_demo_content(section, level, country, content_type, index=None):
     """Delete demo content (videos, text, or photos). index=None deletes all; index=int deletes one."""

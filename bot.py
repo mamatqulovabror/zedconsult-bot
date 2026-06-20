@@ -512,17 +512,21 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     """Send demo course content with inline keyboard"""
     demo = course.get("demo", {})
     
-    # Send demo content (text, video, photos)
-    demo_video = demo.get("video")
+    # Send demo content (text, videos, photos)
+    demo_videos = demo.get("videos", [])
+    demo_video_old = demo.get("video")  # backward compat: old single-video format
+    if demo_video_old and not demo_videos:
+        demo_videos = [demo_video_old]
     demo_text = demo.get("text")
     demo_photos = demo.get("photos", [])
     
     if demo_text:
         await context.bot.send_message(chat_id, t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
     
-    if demo_video:
-        dv_id, dv_cap = _media_parts(demo_video)
-        await context.bot.send_video(chat_id, dv_id, caption=dv_cap or t(user_id, "demo_content"))
+    for idx, dv in enumerate(demo_videos):
+        dv_id, dv_cap = _media_parts(dv)
+        caption = dv_cap if dv_cap else (t(user_id, "demo_content") if idx == 0 else None)
+        await context.bot.send_video(chat_id, dv_id, caption=caption)
     
     for photo in demo_photos:
         dp_id, dp_cap = _media_parts(photo)

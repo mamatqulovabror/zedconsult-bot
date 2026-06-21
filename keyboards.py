@@ -5,7 +5,7 @@ from texts import t
 
 def main_menu(user_id):
     """Main menu for users"""
-    from admins_db import is_super_admin
+    from admins_db import is_admin
     
     rows = [
         [t(user_id, "btn_university"), t(user_id, "btn_consult")],
@@ -14,8 +14,8 @@ def main_menu(user_id):
         [t(user_id, "btn_about")],
     ]
     
-    # Show "Bot boshqaruvi" only for super admin
-    if is_super_admin(user_id):
+    # Show "Bot boshqaruvi" for any admin (super admin gets full panel, others get limited view)
+    if is_admin(user_id):
         rows.append([t(user_id, "btn_bot_panel")])
     
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)

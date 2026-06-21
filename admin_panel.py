@@ -590,14 +590,28 @@ async def show_pending_payments(update, context):
 
 async def show_approved_payments(update, context):
     from payments import get_approved_payments
+    from admins_db import get_admin_joined_at
     uid_caller = update.effective_user.id
-    kb_to_use = payments_kb() if is_super_admin(uid_caller) else limited_admin_kb()
+    is_limited = not is_super_admin(uid_caller)
+    kb_to_use = limited_admin_kb() if is_limited else payments_kb()
     approved = get_approved_payments()
-    if not approved:
+
+    # Limited (non-super) admins only see payments approved after they became admin, no customer info
+    if is_limited:
+        joined_at = get_admin_joined_at(uid_caller)
+        items = list(approved.items())
+        if joined_at:
+            items = [(pid, p) for pid, p in items if (p.get("date") or "") >= joined_at]
+        items = items[-15:]
+    else:
+        items = list(approved.items())[-15:]
+
+    if not items:
         await update.message.reply_text("Tasdiqlangan tolovlar yoq", reply_markup=kb_to_use)
         return
-    text = "Tasdiqlangan tolovlar (oxirgi 15):\n\n"
-    for pay_id, payment in list(approved.items())[-15:]:
+
+    text = "Tasdiqlangan tolovlar (oxirgi " + str(len(items)) + " ta):\n\n"
+    for pay_id, payment in items:
         username = payment.get("username") or "-"
         first_name = payment.get("first_name") or "User"
         payment_type = payment.get("type") or ""
@@ -611,9 +625,13 @@ async def show_approved_payments(update, context):
             type_text = "Premium"
         else:
             type_text = "Konsultatsiya"
-        text += str(first_name) + " (@" + str(username) + ")\n"
-        text += "  $" + str(amount) + " | " + type_text + "\n"
-        text += "  " + str(date) + "\n\n"
+        if is_limited:
+            text += "$" + str(amount) + " | " + type_text + "\n"
+            text += "  " + str(date) + "\n\n"
+        else:
+            text += str(first_name) + " (@" + str(username) + ")\n"
+            text += "  $" + str(amount) + " | " + type_text + "\n"
+            text += "  " + str(date) + "\n\n"
     await update.message.reply_text(text, reply_markup=kb_to_use)
 
 
@@ -1165,6 +1183,13 @@ async def handle_input_mode(update, context, mode):
             new_aid = int(text)
             if add_admin(new_aid):
                 await message.reply_text(f"✅ Admin qo'shildi: {new_aid}")
+                try:
+                    await context.bot.send_message(
+                        chat_id=new_aid,
+                        text="✅ Siz admin etib tayinlandingiz!\n\nEndi botda ⚙️ Bot boshqaruvi bolimi orqali tasdiqlangan tolovlarni korishingiz mumkin."
+                    )
+                except Exception:
+                    pass
             else:
                 await message.reply_text("❌ Bu user allaqachon admin")
         except ValueError:

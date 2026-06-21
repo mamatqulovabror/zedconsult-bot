@@ -222,6 +222,54 @@ async def open_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+BTN_LIMITED_APPROVED = "✅ Tasdiqlangan tolovlar"
+BTN_LIMITED_EXIT = "❌ Chiqish"
+
+
+def limited_admin_kb():
+    """Limited keyboard for non-super admins - view only"""
+    return ReplyKeyboardMarkup([
+        [BTN_LIMITED_APPROVED],
+        [BTN_LIMITED_EXIT]
+    ], resize_keyboard=True)
+
+
+async def open_limited_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Open limited admin panel - view only for non-super admins"""
+    user_id = update.effective_user.id
+    set_state(user_id, in_panel=True, screen="limited_main")
+    await update.message.reply_text(
+        "⚙️ *BOT BOSHQARUVI*
+
+Faqat tasdiqlangan tolovlarni korishingiz mumkin.",
+        reply_markup=limited_admin_kb(),
+        parse_mode="Markdown"
+    )
+
+
+async def handle_limited_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle messages for limited (non-super) admins - read-only access"""
+    user_id = update.effective_user.id
+    text = update.message.text if update.message.text else ""
+
+    if text == BTN_LIMITED_EXIT:
+        set_state(user_id, in_panel=False, screen="main")
+        from keyboards import main_menu
+        await update.message.reply_text("✅ Chiqdingiz", reply_markup=main_menu(user_id))
+        return True
+
+    if text == BTN_LIMITED_APPROVED:
+        await show_approved_payments(update, context)
+        return True
+
+    # Any other input while in limited panel - just reshow the keyboard
+    await update.message.reply_text(
+        "Iltimos, tugmalardan foydalaning.",
+        reply_markup=limited_admin_kb()
+    )
+    return True
+
+
 async def exit_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Exit admin panel"""
     from keyboards import main_menu
@@ -246,7 +294,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return False
     
     if not is_super_admin(user_id):
-        return False
+        return await handle_limited_admin_message(update, context)
     
     text = update.message.text if update.message.text else ""
     state = get_state(user_id)
@@ -544,9 +592,11 @@ async def show_pending_payments(update, context):
 
 async def show_approved_payments(update, context):
     from payments import get_approved_payments
+    uid_caller = update.effective_user.id
+    kb_to_use = payments_kb() if is_super_admin(uid_caller) else limited_admin_kb()
     approved = get_approved_payments()
     if not approved:
-        await update.message.reply_text("Tasdiqlangan tolovlar yoq", reply_markup=payments_kb())
+        await update.message.reply_text("Tasdiqlangan tolovlar yoq", reply_markup=kb_to_use)
         return
     text = "Tasdiqlangan tolovlar (oxirgi 15):\n\n"
     for pay_id, payment in list(approved.items())[-15:]:
@@ -566,7 +616,7 @@ async def show_approved_payments(update, context):
         text += str(first_name) + " (@" + str(username) + ")\n"
         text += "  $" + str(amount) + " | " + type_text + "\n"
         text += "  " + str(date) + "\n\n"
-    await update.message.reply_text(text, reply_markup=payments_kb())
+    await update.message.reply_text(text, reply_markup=kb_to_use)
 
 
 async def show_payment_stats(update, context):

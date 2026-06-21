@@ -56,7 +56,7 @@ def remove_admin(user_id):
     data = load_admins()
     uid = int(user_id)
     if uid == SUPER_ADMIN_ID:
-        return False  # super admin ochirilmaydi
+        return False
     if uid not in data["admins"]:
         return False
     data["admins"].remove(uid)
@@ -70,6 +70,5 @@ def get_all_admins():
 
 
 def get_admin_joined_at(user_id):
-    """Returns the datetime string when this admin was added, or None if unknown (e.g. super admin)."""
     data = load_admins()
     return data.get("joined", {}).get(str(int(user_id)))

@@ -299,7 +299,7 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for vid in full_videos:
                 try:
                     v_id, v_cap = _media_parts(vid)
-                    await context.bot.send_video(user_id, v_id, caption=v_cap)
+                    await context.bot.send_video(user_id, v_id, caption=v_cap, protect_content=True)
                 except Exception as e:
                     print(f"Video error: {e}")
             
@@ -307,7 +307,7 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for ph in full_photos:
                 try:
                     p_id, p_cap = _media_parts(ph)
-                    await context.bot.send_photo(user_id, p_id, caption=p_cap)
+                    await context.bot.send_photo(user_id, p_id, caption=p_cap, protect_content=True)
                 except Exception as e:
                     print(f"Photo error: {e}")
             
@@ -526,11 +526,11 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     for idx, dv in enumerate(demo_videos):
         dv_id, dv_cap = _media_parts(dv)
         caption = dv_cap if dv_cap else (t(user_id, "demo_content") if idx == 0 else None)
-        await context.bot.send_video(chat_id, dv_id, caption=caption)
+        await context.bot.send_video(chat_id, dv_id, caption=caption, protect_content=True)
     
     for photo in demo_photos:
         dp_id, dp_cap = _media_parts(photo)
-        await context.bot.send_photo(chat_id, dp_id, caption=dp_cap)
+        await context.bot.send_photo(chat_id, dp_id, caption=dp_cap, protect_content=True)
     
     # Show expense/income (free) + buy button with back/home
     buttons = [
@@ -569,11 +569,11 @@ async def send_full_course_inline(context, chat_id, user_id, course, course_id, 
     
     for video in full_videos:
         fv_id, fv_cap = _media_parts(video)
-        await context.bot.send_video(chat_id, fv_id, caption=fv_cap)
+        await context.bot.send_video(chat_id, fv_id, caption=fv_cap, protect_content=True)
     
     for photo in full_photos:
         fp_id, fp_cap = _media_parts(photo)
-        await context.bot.send_photo(chat_id, fp_id, caption=fp_cap)
+        await context.bot.send_photo(chat_id, fp_id, caption=fp_cap, protect_content=True)
     
     # Show back buttons
     buttons = [
@@ -923,7 +923,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i_idx, i_v in enumerate(i_videos):
             iv_id, iv_cap = _media_parts(i_v)
             i_caption = iv_cap if iv_cap else (i_label if i_idx == 0 and not i_text else None)
-            await context.bot.send_video(i_chat_id, iv_id, caption=i_caption)
+            await context.bot.send_video(i_chat_id, iv_id, caption=i_caption, protect_content=True)
         return
 
     if data.startswith("su:"):
@@ -1292,14 +1292,14 @@ async def handle_admin_approve_internal(context, pay_id):
                 for vid in full_videos:
                     try:
                         v2_id, v2_cap = _media_parts(vid)
-                        await context.bot.send_video(user_id, v2_id, caption=v2_cap)
+                        await context.bot.send_video(user_id, v2_id, caption=v2_cap, protect_content=True)
                     except Exception:
                         pass
                 
                 for ph in full_photos:
                     try:
                         p2_id, p2_cap = _media_parts(ph)
-                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap)
+                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap, protect_content=True)
                     except Exception:
                         pass
                 

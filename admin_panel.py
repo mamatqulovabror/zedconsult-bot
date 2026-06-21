@@ -239,9 +239,7 @@ async def open_limited_admin_panel(update: Update, context: ContextTypes.DEFAULT
     user_id = update.effective_user.id
     set_state(user_id, in_panel=True, screen="limited_main")
     await update.message.reply_text(
-        "⚙️ *BOT BOSHQARUVI*
-
-Faqat tasdiqlangan tolovlarni korishingiz mumkin.",
+        "⚙️ *BOT BOSHQARUVI*\n\nFaqat tasdiqlangan tolovlarni korishingiz mumkin.",
         reply_markup=limited_admin_kb(),
         parse_mode="Markdown"
     )

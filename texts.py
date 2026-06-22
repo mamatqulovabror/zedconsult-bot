@@ -153,9 +153,19 @@ def t(user_id, key, **kwargs):
     lang = get_lang(user_id)
     if key == "welcome":
         custom = get_custom_welcome(lang)
-        if custom:
-            return custom
+        if custom and custom.get("text"):
+            return custom["text"]
     text = TEXTS.get(lang, TEXTS["uz"]).get(key, "")
     if kwargs:
         text = text.format(**kwargs)
     return text
+
+
+def get_welcome_media(user_id):
+    """Returns (photo_file_id, video_file_id) for the custom welcome message, or (None, None)."""
+    from data import get_lang
+    lang = get_lang(user_id)
+    custom = get_custom_welcome(lang)
+    if custom:
+        return custom.get("photo"), custom.get("video")
+    return None, None

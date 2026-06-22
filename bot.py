@@ -78,11 +78,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from data import save_db, DB_FILE
         save_db(DB_FILE, user_db)
     try:
-        await update.message.reply_text(
-            t(user_id, "welcome"),
-            reply_markup=main_menu(user_id),
-            parse_mode="Markdown"
-        )
+        from texts import get_welcome_media
+        w_photo, w_video = get_welcome_media(user_id)
+        if w_video:
+            await update.message.reply_video(
+                w_video,
+                caption=t(user_id, "welcome"),
+                reply_markup=main_menu(user_id),
+                parse_mode="Markdown"
+            )
+        elif w_photo:
+            await update.message.reply_photo(
+                w_photo,
+                caption=t(user_id, "welcome"),
+                reply_markup=main_menu(user_id),
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(
+                t(user_id, "welcome"),
+                reply_markup=main_menu(user_id),
+                parse_mode="Markdown"
+            )
     except Exception as e:
         print(f"Error in /start for user {user_id}: {e}")
         # Fallback: send without markdown

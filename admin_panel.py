@@ -34,6 +34,9 @@ BTN_BACK = "🔙 Orqaga"
 BTN_PAY_PENDING = "⏳ Kutayotgan to'lovlar"
 BTN_PAY_APPROVED = "✅ Tasdiqlangan"
 BTN_PAY_STATS = "📊 To'lov statistikasi"
+BTN_RESET_INCOME = "🔄 Daromadni reset qilish"
+BTN_RESET_CONFIRM = "✅ Ha, reset qilish"
+BTN_RESET_CANCEL = "❌ Yo'q, bekor"
 
 # Courses submenu
 BTN_COURSE_UNI = "🎓 Universitet"
@@ -117,7 +120,15 @@ def payments_kb():
     return ReplyKeyboardMarkup([
         [BTN_PAY_PENDING],
         [BTN_PAY_APPROVED, BTN_PAY_STATS],
+        [BTN_RESET_INCOME],
         [BTN_BACK]
+    ], resize_keyboard=True)
+
+
+def reset_confirm_kb():
+    """Confirmation keyboard for income reset"""
+    return ReplyKeyboardMarkup([
+        [BTN_RESET_CONFIRM, BTN_RESET_CANCEL]
     ], resize_keyboard=True)
 
 
@@ -541,6 +552,27 @@ async def handle_payments_screen(update, context, text):
     
     if text == BTN_PAY_STATS:
         await show_payment_stats(update, context)
+        return True
+    
+    if text == BTN_RESET_INCOME:
+        set_state(user_id, mode="confirm_reset_income")
+        await update.message.reply_text(
+            "⚠️ *Diqqat!*\n\nJami daromad hisoblagichi 0'ga qaytariladi. To'lovlar tarixi o'chmaydi, faqat statistikadagi jami summa reset bo'ladi.\n\nDavom etasizmi?",
+            reply_markup=reset_confirm_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+    
+    if text == BTN_RESET_CONFIRM and get_state(user_id).get("mode") == "confirm_reset_income":
+        from payments import reset_total_income
+        reset_total_income()
+        set_state(user_id, mode="")
+        await update.message.reply_text("✅ Jami daromad reset qilindi!", reply_markup=payments_kb())
+        return True
+    
+    if text == BTN_RESET_CANCEL and get_state(user_id).get("mode") == "confirm_reset_income":
+        set_state(user_id, mode="")
+        await update.message.reply_text("❌ Bekor qilindi", reply_markup=payments_kb())
         return True
     
     # Check if user clicked on a payment ID

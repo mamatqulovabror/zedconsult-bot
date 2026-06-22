@@ -377,6 +377,10 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
     if screen == "admins":
         return await handle_admins_screen(update, context, text)
     
+    # ===== WELCOME MENU SCREEN =====
+    if screen == "welcome_menu":
+        return await handle_main_screen(update, context, text)
+    
     return False
 
 

@@ -119,7 +119,8 @@ TEXTS = {
 
 
 
-WELCOME_FILE = "/mnt/data/welcome_text.json"
+_DATA_DIR_TX = "/data" if __import__("os").path.isdir("/data") else "."
+WELCOME_FILE = _DATA_DIR_TX + "/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
     import json, os

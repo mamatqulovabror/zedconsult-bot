@@ -27,6 +27,11 @@ BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
+BTN_WELCOME_TEXT = "📝 Matnni tahrirlash"
+BTN_WELCOME_PHOTO = "🎥 Rasm qo'shish"
+BTN_WELCOME_VIDEO = "🎬 Video qo'shish"
+BTN_DEL_WELCOME_PHOTO = "🗑 Rasmni o'chir"
+BTN_DEL_WELCOME_VIDEO = "🗑 Videoni o'chir"
 BTN_EXIT = "🚪 Chiqish"
 BTN_BACK = "🔙 Orqaga"
 
@@ -103,6 +108,16 @@ def is_in_admin_panel(user_id):
 
 
 # ============ KEYBOARDS ============
+def welcome_menu_kb():
+    """Welcome message edit submenu"""
+    return ReplyKeyboardMarkup([
+        [BTN_WELCOME_TEXT],
+        [BTN_WELCOME_PHOTO, BTN_DEL_WELCOME_PHOTO],
+        [BTN_WELCOME_VIDEO, BTN_DEL_WELCOME_VIDEO],
+        [BTN_BACK]
+    ], resize_keyboard=True)
+
+
 def main_admin_kb():
     """Main admin panel keyboard"""
     return ReplyKeyboardMarkup([
@@ -322,7 +337,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return True
     
     # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode and mode not in ("edit_country", "reorder_country", "edit_welcome", "confirm_reset_income"):
+    if mode and mode not in ("edit_country", "reorder_country", "confirm_reset_income"):
         return await handle_input_mode(update, context, mode)
     
     # ===== BACK =====
@@ -480,14 +495,47 @@ async def handle_main_screen(update, context, text):
         return True
     
     if text == BTN_WELCOME_MSG:
-        from texts import get_custom_welcome, TEXTS
-        current = get_custom_welcome("uz") or TEXTS["uz"]["welcome"]
-        set_state(user_id, mode="edit_welcome")
+        set_state(user_id, screen="welcome_menu")
         await update.message.reply_text(
-            "Kirish xabarini tahrirlash\n\nHozirgi:\n" + str(current) + "\n\nYangi xabarni yuboring:",
-            reply_markup=cancel_kb()
+            "🏠 *Kirish xabari*\n\nNimani tahrirlamoqchisiz?",
+            reply_markup=welcome_menu_kb(),
+            parse_mode="Markdown"
         )
         return True
+    
+    if screen == "welcome_menu":
+        if text == BTN_WELCOME_TEXT:
+            from texts import get_custom_welcome, TEXTS
+            current = get_custom_welcome("uz")
+            current_text = (current.get("text") if current else None) or TEXTS["uz"]["welcome"]
+            set_state(user_id, mode="edit_welcome")
+            await update.message.reply_text(
+                "Hozirgi matn:\n" + str(current_text) + "\n\nYangi matnni yuboring:",
+                reply_markup=cancel_kb()
+            )
+            return True
+        if text == BTN_WELCOME_PHOTO:
+            set_state(user_id, mode="edit_welcome_photo")
+            await update.message.reply_text("Yangi rasmni yuboring:", reply_markup=cancel_kb())
+            return True
+        if text == BTN_WELCOME_VIDEO:
+            set_state(user_id, mode="edit_welcome_video")
+            await update.message.reply_text("Yangi videoni yuboring:", reply_markup=cancel_kb())
+            return True
+        if text == BTN_DEL_WELCOME_PHOTO:
+            from texts import save_custom_welcome
+            save_custom_welcome(photo="")
+            await update.message.reply_text("✅ Kirish rasmi o'chirildi!", reply_markup=welcome_menu_kb())
+            return True
+        if text == BTN_DEL_WELCOME_VIDEO:
+            from texts import save_custom_welcome
+            save_custom_welcome(video="")
+            await update.message.reply_text("✅ Kirish videosi o'chirildi!", reply_markup=welcome_menu_kb())
+            return True
+        if text == BTN_BACK:
+            set_state(user_id, screen="main")
+            await update.message.reply_text("⚙️ Bot boshqaruvi", reply_markup=main_admin_kb())
+            return True
     
     return True  # we're in admin panel, swallow other messages
 
@@ -1298,15 +1346,34 @@ async def handle_input_mode(update, context, mode):
             await update.message.reply_text("Faqat raqam yuboring!")
         return True
     
-    if mode == "edit_welcome":
+    if mode == "edit_welcome" and text:
         from texts import save_custom_welcome
-        ok = save_custom_welcome(text, "uz")
+        ok = save_custom_welcome(text=text, lang="uz")
         if ok:
-            await update.message.reply_text("Kirish xabari saqlandi!")
+            await update.message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
         else:
-            await update.message.reply_text("Xato!")
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, "main")
+            await update.message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
+        set_state(user_id, mode="", screen="welcome_menu")
+        return True
+    
+    if mode == "edit_welcome_photo" and message.photo:
+        from texts import save_custom_welcome
+        ok = save_custom_welcome(lang="uz", photo=message.photo[-1].file_id)
+        if ok:
+            await message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
+        else:
+            await message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
+        set_state(user_id, mode="", screen="welcome_menu")
+        return True
+    
+    if mode == "edit_welcome_video" and message.video:
+        from texts import save_custom_welcome
+        ok = save_custom_welcome(lang="uz", video=message.video.file_id)
+        if ok:
+            await message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
+        else:
+            await message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
+        set_state(user_id, mode="", screen="welcome_menu")
         return True
     
     return True

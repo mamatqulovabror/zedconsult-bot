@@ -438,6 +438,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============ MAIN SCREEN HANDLER ============
 async def handle_main_screen(update, context, text):
     user_id = update.effective_user.id
+    screen = get_state(user_id).get("screen", "main")
     
     if text == BTN_PAYMENTS:
         await navigate_to_screen(update, context, "payments")

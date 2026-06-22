@@ -91,7 +91,12 @@ def get_payment_stats():
     course_count = len([p for p in payments.values() if p.get("type") == "course" and p.get("status") == "approved"])
     consult_count = len([p for p in payments.values() if p.get("type") == "consult" and p.get("status") == "approved"])
     
-    total_revenue = sum([p.get("amount", 0) for p in payments.values() if p.get("status") == "approved"])
+    reset_at = get_income_reset_at()
+    if reset_at:
+        revenue_payments = [p for p in payments.values() if p.get("status") == "approved" and (p.get("date") or "") >= reset_at]
+    else:
+        revenue_payments = [p for p in payments.values() if p.get("status") == "approved"]
+    total_revenue = sum([p.get("amount", 0) for p in revenue_payments])
     
     return {
         "total": total,
@@ -103,3 +108,21 @@ def get_payment_stats():
         "consult_count": consult_count,
         "total_revenue": total_revenue
     }
+
+_RESET_FILE = os.path.join(_DATA_DIR, "income_reset.json")
+
+def get_income_reset_at():
+    """Returns the datetime string from which revenue should be counted, or None if never reset."""
+    try:
+        if os.path.exists(_RESET_FILE):
+            with open(_RESET_FILE, "r", encoding="utf-8") as f:
+                return json.load(f).get("reset_at")
+    except:
+        pass
+    return None
+
+def reset_total_income():
+    """Reset total income counter - only affects stats display, payment records are kept."""
+    with open(_RESET_FILE, "w", encoding="utf-8") as f:
+        json.dump({"reset_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, f, ensure_ascii=False)
+    return True

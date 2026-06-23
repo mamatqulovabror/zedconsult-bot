@@ -1379,4 +1379,4 @@ except Exception as e:
     print(f"Seed error: {e}")
 
 print("🎓 Budget Viza bot ishlamoqda...")
-app.run_polling()
+app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)

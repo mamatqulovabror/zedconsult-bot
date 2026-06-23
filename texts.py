@@ -22,8 +22,8 @@ TEXTS = {
         # Payment approved
         "course_approved": "✅ *To'lovingiz tasdiqlandi!*\n\n🎉 Tabriklaymiz! Kurs sizga ochildi.\n📚 Kurs: {course_name}\n⏱ Amal qilish: 1 yil\n\n🚀 Chet elda o'qishingizga omad tilaymiz!\n\n👥 Guruh:",
         "premium_approved": "✅ *To'lovingiz tasdiqlandi!*\n\n🎉 *Premium obuna faollashtirildi!*\n\n✨ Barcha kurslar sizga ochiq\n🎁 1 marta TEKIN konsultatsiya\n⏱ Amal qilish: 1 yil\n\n🚀 Muvaffaqiyatlar!\n\n👥 Guruhlar:",
-        "consult_approved": "✅ *Konsultatsiyangiz tasdiqlandi!*\n\n📅 Sana: {date}\n⏰ Vaqt: {slot}\n\nKonsultatsiya vaqtida tayyor bo'ling.\n📱 Aloqa: @kaccocii",
-        "payment_rejected": "❌ To'lovingiz tasdiqlanmadi.\n\nAdmin bilan bog'laning: @kaccocii",
+        "consult_approved": "✅ *Konsultatsiyangiz tasdiqlandi!*\n\n📅 Sana: {date}\n⏰ Vaqt: {slot}\n\nKonsultatsiya vaqtida tayyor bo'ling.\n📱 Aloqa: @budgetvizaadmin",
+        "payment_rejected": "❌ To'lovingiz tasdiqlanmadi.\n\nAdmin bilan bog'laning: @budgetvizaadmin",
         
         # Consultation
         "choose_date": "📅 Konsultatsiya kunini tanlang:",
@@ -49,8 +49,8 @@ TEXTS = {
         "main": "🏠 Asosiy",
         
         # Other
-        "about": "🎓 *Budget Viza*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium: $250/yil - barcha kurslar\n📚 Kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Admin: @kaccocii",
-        "admin_contact": "👨‍💻 *Admin:*\n\n@kaccocii",
+        "about": "🎓 *Budget Viza*\n\nChet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium: $250/yil - barcha kurslar\n📚 Kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Admin: @budgetvizaadmin",
+        "admin_contact": "👨‍💻 *Admin:*\n\n@budgetvizaadmin",
         "invalid_input": "❌ Iltimos, ro'yxatdan tanlang.",
         "video_coming": "🎬 Tez orada video qo'shiladi.",
         "my_courses_list": "📚 *Sizning kurslaringiz:*\n\n{courses}\n\n⏱ Barcha kurslar 1 yil amal qiladi.",
@@ -80,8 +80,8 @@ TEXTS = {
         # Payment approved
         "course_approved": "✅ *Payment confirmed!*\n\n🎉 Congratulations! Course unlocked.\n📚 Course: {course_name}\n⏱ Valid: 1 year\n\n🚀 Good luck studying abroad!\n\n👥 Group:",
         "premium_approved": "✅ *Payment confirmed!*\n\n🎉 *Premium activated!*\n\n✨ All courses unlocked\n🎁 1 FREE consultation\n⏱ Valid: 1 year\n\n🚀 Good luck!\n\n👥 Groups:",
-        "consult_approved": "✅ *Consultation confirmed!*\n\n📅 Date: {date}\n⏰ Time: {slot}\n\nBe ready at scheduled time.\n📱 Contact: @kaccocii",
-        "payment_rejected": "❌ Payment not confirmed.\n\nContact admin: @kaccocii",
+        "consult_approved": "✅ *Consultation confirmed!*\n\n📅 Date: {date}\n⏰ Time: {slot}\n\nBe ready at scheduled time.\n📱 Contact: @budgetvizaadmin",
+        "payment_rejected": "❌ Payment not confirmed.\n\nContact admin: @budgetvizaadmin",
         
         # Consultation
         "choose_date": "📅 Choose consultation date:",
@@ -107,8 +107,8 @@ TEXTS = {
         "main": "🏠 Main",
         
         # Other
-        "about": "🎓 *Budget Viza*\n\nProfessional consulting for studying and working abroad.\n\n💎 Premium: $250/year - all courses\n📚 Course: $44/year\n📞 Consultation: $15 (FREE for Premium)\n\n📱 Admin: @kaccocii",
-        "admin_contact": "👨‍💻 *Admin:*\n\n@kaccocii",
+        "about": "🎓 *Budget Viza*\n\nProfessional consulting for studying and working abroad.\n\n💎 Premium: $250/year - all courses\n📚 Course: $44/year\n📞 Consultation: $15 (FREE for Premium)\n\n📱 Admin: @budgetvizaadmin",
+        "admin_contact": "👨‍💻 *Admin:*\n\n@budgetvizaadmin",
         "invalid_input": "❌ Please choose from list.",
         "video_coming": "🎬 Video coming soon.",
         "my_courses_list": "📚 *Your courses:*\n\n{courses}\n\n⏱ All courses valid for 1 year.",

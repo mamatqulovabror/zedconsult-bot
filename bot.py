@@ -249,6 +249,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Paid consultation
             users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "consult"
             await update.message.reply_text(
                 t(user_id, "payment_consult", price=CONSULT_PRICE, card=CARD, methods=PAYMENT_METHODS),
                 reply_markup=back_menu(user_id),
@@ -1097,6 +1098,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username=username,
                 first_name=first_name
             )
+        elif payment_type == "consult":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="consult",
+                amount=CONSULT_PRICE,
+                screenshot_id=screenshot_id,
+                username=username,
+                first_name=first_name
+            )
         else:
             return
         
@@ -1328,6 +1338,30 @@ async def handle_admin_approve_internal(context, pay_id):
                     await context.bot.send_message(user_id, f"👥 *Gurux'ga qo'shiling:* {link}", parse_mode="Markdown")
         except Exception as e:
             print(f"Course send error: {e}")
+    
+    elif payment_type == "consult":
+        u = users.get(user_id, {})
+        name = u.get("name", "-")
+        phone = u.get("phone", "-")
+        date = u.get("date", "-")
+        slot = u.get("slot", "-")
+        
+        if date != "-" and slot != "-":
+            if date not in booked_slots:
+                booked_slots[date] = set()
+            booked_slots[date].add(slot)
+            save_booking(user_id, {"name": name, "phone": phone, "date": date, "slot": slot})
+        
+        await context.bot.send_message(
+            user_id,
+            t(user_id, "consult_approved", date=date, slot=slot),
+            parse_mode="Markdown"
+        )
+        
+        if date != "-" and slot != "-":
+            asyncio.create_task(schedule_reminder(context, user_id, date, slot))
+        
+        clear(user_id)
     
     return True
 

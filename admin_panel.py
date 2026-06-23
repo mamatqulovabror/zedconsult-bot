@@ -1472,7 +1472,7 @@ async def handle_approve_command(update, context):
         try:
             await context.bot.send_message(
                 target_user_id,
-                "✅ Konsultatsiyangiz tasdiqlandi! Admin: @kaccocii",
+                "✅ Konsultatsiyangiz tasdiqlandi! Admin: @budgetvizaadmin",
                 parse_mode="Markdown"
             )
         except Exception:

@@ -1,6 +1,6 @@
 TEXTS = {
     "uz": {
-        "welcome": "🎓 *Budget Vizaga xush kelibsiz!*\n\nBu yerda chet elga ketish uchun barcha kerakli ma'lumotlar va statistikalar mavjud — barchasi sof o'zbek tilida tayyorlangan.\n\n🏠 Uyingizdan turib, to chet el universiteti yoki ishxonasi eshigigacha bo'lgan yo'lni biz sizga to'liq o'rgatamiz.\n\n✨ *Biz bilan siz quyidagilarni qila olasiz:*\n\n✅ 100 lab universitetlarga yoki ish vakansiyalariga *tekinga* hujjat topshirish\n🏆 100% va full ride grantlarni yutish sirlarini o'rganish, bir so'm ham harajat qilmasdan davlat va halqaro grantlar sohibi bo'lish\n⚡️ Hammasini atigi 1 kun ichida o'zlashtirib, hujjat topshirishni boshlash\n🌍 Istalgan davlatga, istalgan miqdorda ariza yuborish imkoniyati\n\n💡 *SOLISHTIRMA:*\n\nKonsalting firmalar narxi o'rtacha 500$-1200$ (80% foizi sifatsiz servis ko'rsatadi, atigi 1-2 ta ish vakansiyasiga/universitetiga hujjat topshirib beradi, ko'pchiligi aldab ketadi)\n\nBiz bilan esa atigi 44$ evaziga 100-200 lab universitetlarga yoki ish vakansiyalariga hujjat topshirishni 1 kunda o'rganib olasiz! O'zingiz application jarayonini nazorat qilib turasiz\n\n_Unutmang: Sizning hujjatlaringizni o'zingizdan boshqasi ko'ngildagidek qilib topshirib bera olmaydi!_",
+        "welcome": "🎓 *Budget Vizaga xush kelibsiz!*\n\nBu yerda chet elga ketish uchun barcha kerakli ma'lumotlar va statistikalar mavjud — barchasi sof o'zbek tilida tayyorlangan.\n\n🏠 Uyingizdan turib, to chet el universiteti yoki ishxonasi eshigigacha bo'lgan yo'lni biz sizga to'liq o'rgatamiz.\n\n✨ *Biz bilan siz quyidagilarni qila olasiz:*\n\n✅ 100 lab universitetlarga yoki ish vakansiyalariga *tekinga* hujjat topshirish\n🏆 100% va full ride grantlarni yutish sirlarini o'rganish, bir so'm ham harajat qilmasdan davlat va halqaro grantlar sohibi bo'lish\n⚡️ Hammasini atigi 1 kun ichida o'zlashtirib, hujjat topshirishni boshlash\n🌍 Istalgan davlatga, istalgan miqdorda ariza yuborish imkoniyati\n\n💡 *SOLISHTIRMA:*\n\nKonsalting firmalar narxi o'rtacha 500$-1200$ (80% foizi sifatsiz servis ko'rsatadi, atigi 1-2 ta ish vakansiyasiga/universitetiga hujjat topshirib beradi, ko'pchiligi aldab ketadi)\n\nBiz bilan esa atigi 44$ evaziga 100-200 lab universitetlarga yoki ish vakansiyalariga hujjat topshirishni 1 kunda o'rganib olasiz! O'zingiz application jarayonini nazorat qilib turasiz",
         "main_menu": "Kerakli bo'limni tanlang:",
         
         # Course viewing
@@ -123,24 +123,42 @@ _DATA_DIR_TX = "/data" if __import__("os").path.isdir("/data") else "."
 WELCOME_FILE = _DATA_DIR_TX + "/welcome_text.json"
 
 def get_custom_welcome(lang="uz"):
+    """Returns dict {text, photo, video} or None."""
     import json, os
     try:
         if os.path.exists(WELCOME_FILE):
             with open(WELCOME_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get(lang) or data.get("uz")
+                raw = data.get(lang) or data.get("uz")
+                if raw is None:
+                    return None
+                if isinstance(raw, str):
+                    return {"text": raw, "photo": None, "video": None}
+                return {"text": raw.get("text"), "photo": raw.get("photo"), "video": raw.get("video")}
     except:
         pass
     return None
 
-def save_custom_welcome(text, lang="uz"):
+def save_custom_welcome(text=None, lang="uz", photo=None, video=None):
+    """Save welcome content. Pass only the fields you want to update."""
     import json, os
     try:
         data = {}
         if os.path.exists(WELCOME_FILE):
             with open(WELCOME_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-        data[lang] = text
+        existing = data.get(lang)
+        if isinstance(existing, str):
+            existing = {"text": existing, "photo": None, "video": None}
+        elif not isinstance(existing, dict):
+            existing = {"text": None, "photo": None, "video": None}
+        if text is not None:
+            existing["text"] = text
+        if photo is not None:
+            existing["photo"] = photo
+        if video is not None:
+            existing["video"] = video
+        data[lang] = existing
         os.makedirs(os.path.dirname(WELCOME_FILE), exist_ok=True)
         with open(WELCOME_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False)

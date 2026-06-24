@@ -6,7 +6,7 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     filters, ContextTypes, CallbackQueryHandler
 )
-from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES, SUPER_ADMIN_ID, PREMIUM_PRICE, COURSE_PRICE, CONSULT_PRICE
+from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES, SUPER_ADMIN_ID, COMBO_PRICE, COURSE_PRICE, CONSULT_PRICE
 from data import users, user_db, bookings_db, register_user, get_lang, save_booking, delete_booking
 from texts import t
 from keyboards import main_menu, back_menu, phone_keyboard, language_keyboard, level_keyboard, country_keyboard, course_action_keyboard, payment_keyboard
@@ -21,9 +21,9 @@ def _media_parts(item):
 
 # Import new systems
 from payments import create_payment, get_pending_payments, approve_payment, reject_payment, get_payment
-from subscriptions import activate_premium, activate_course, is_premium, has_course_access, can_use_free_consult, use_free_consult, get_user_courses
+from subscriptions import activate_combo, activate_course, is_premium, has_course_access, can_use_free_consult, use_free_consult, get_user_courses
 from group_links import get_country_link, get_all_links
-from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content, seed_default_countries
+from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content, seed_default_countries, get_combo_course_ids, combo_available
 
 # Admin panel (new ReplyKeyboard based)
 from admin_panel import (
@@ -141,7 +141,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         t(user_id, "btn_university"),
         t(user_id, "btn_visa"),
         t(user_id, "btn_work"),
-        t(user_id, "btn_premium"),
+        t(user_id, "btn_combo"),
         t(user_id, "btn_consult"),
         t(user_id, "btn_my_courses"),
         t(user_id, "btn_about"),
@@ -204,9 +204,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_my_courses(update, context)
         return
 
-    # Premium button
-    if text == t(user_id, "btn_premium"):
-        await start_premium_purchase(update, context)
+    # Universitet+Viza combo button
+    if text == t(user_id, "btn_combo"):
+        await start_combo_purchase(update, context)
         return
 
     # Consultation button
@@ -281,19 +281,6 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show user's purchased courses - SEND FULL COURSE MATERIALS DIRECTLY"""
     user_id = update.effective_user.id
     
-    # Check if premium
-    if is_premium(user_id):
-        from subscriptions import load_subscriptions
-        subs = load_subscriptions()
-        user_data = subs.get(str(user_id), {})
-        premium = user_data.get("premium", {})
-        expires = premium.get("expires", "")
-        free_consult = "Qolgan" if can_use_free_consult(user_id) else "Ishlatilgan"
-        
-        text = t(user_id, "premium_active", expires=expires, free_consult=free_consult)
-        await update.message.reply_text(text, reply_markup=back_menu(user_id), parse_mode="Markdown")
-        return
-    
     # Get user's courses
     courses = get_user_courses(user_id)
     
@@ -365,16 +352,27 @@ async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
 
 
-async def start_premium_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start premium purchase flow"""
+async def start_combo_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start Universitet+Viza combo purchase flow - choose level first"""
     user_id = update.effective_user.id
     clear(user_id)
-    users[user_id]["step"] = "payment_screenshot"
-    users[user_id]["payment_type"] = "premium"
-    
+
+    levels = get_levels("universitet")
+    if not levels:
+        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=main_menu(user_id))
+        return
+
+    buttons = []
+    for idx, (level_key, level) in enumerate(levels.items(), start=1):
+        buttons.append([InlineKeyboardButton(
+            f"{idx}) {level['name']}",
+            callback_data=f"combo:level:{level_key}"
+        )])
+    buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+
     await update.message.reply_text(
-        t(user_id, "payment_premium", price=PREMIUM_PRICE, card=CARD, methods=PAYMENT_METHODS),
-        reply_markup=back_menu(user_id),
+        "🎓 *Universitet+Viza combo*\n\nDarajani tanlang:",
+        reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
 
@@ -587,7 +585,7 @@ async def send_demo_course_inline(context, chat_id, user_id, course, course_id, 
     
     await context.bot.send_message(
         chat_id,
-        t(user_id, "course_locked", price=COURSE_PRICE, price_premium=PREMIUM_PRICE),
+        t(user_id, "course_locked", price=COURSE_PRICE),
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
@@ -719,6 +717,62 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         return
     
+    # ============ COMBO (Universitet+Viza) CALLBACKS ============
+    if data.startswith("combo:"):
+        parts = data.split(":")
+        action = parts[1] if len(parts) > 1 else ""
+        
+        if action == "level":
+            level_key = parts[2]
+            users[user_id]["combo_level"] = level_key
+            countries = get_countries("universitet", level_key)
+            if not countries:
+                await query.answer(t(user_id, "video_coming"), show_alert=True)
+                return
+            country_items = list(countries.items())
+            btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"combo:country:{level_key}:{country_key}") for country_key, country in country_items]
+            buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
+            buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+            try:
+                await query.edit_message_text(
+                    t(user_id, "choose_country"),
+                    reply_markup=InlineKeyboardMarkup(buttons)
+                )
+            except Exception:
+                pass
+            return
+        
+        if action == "country":
+            level_key = parts[2]
+            country_key = parts[3]
+            uni_id, viza_ids = get_combo_course_ids(level_key, country_key)
+            if not uni_id or not viza_ids:
+                await query.answer(t(user_id, "combo_unavailable"), show_alert=True)
+                return
+            
+            clear(user_id)
+            users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "combo"
+            users[user_id]["combo_level"] = level_key
+            users[user_id]["combo_country"] = country_key
+            
+            levels = get_levels("universitet")
+            level_name = levels.get(level_key, {}).get("name", level_key)
+            
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "payment_combo", country=country_key, level_name=level_name, price=COMBO_PRICE, card=CARD, methods=PAYMENT_METHODS),
+                reply_markup=back_menu(user_id),
+                parse_mode="Markdown"
+            )
+            return
+        
+        return
+    
     # ============ PAYMENT CONFIRMATION =============
     if data.startswith("paid:confirm:"):
         pay_id = data.split(":")[2]
@@ -831,8 +885,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         parts = course_id.split("_")
                         if ptype == "course" and len(parts) >= 3:
                             ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
-                        elif ptype == "premium":
-                            ptype_text = "Premium obuna"
+                        elif ptype == "combo":
+                            ptype_text = "Universitet+Viza combo"
                         else:
                             ptype_text = ptype
                         notify_text = (
@@ -909,8 +963,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = course_id.split("_")
         if ptype == "course" and len(parts) >= 3:
             ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
-        elif ptype == "premium":
-            ptype_text = "Premium obuna"
+        elif ptype == "combo":
+            ptype_text = "Universitet+Viza combo"
         else:
             ptype_text = ptype
         # Faqat kurs ma'lumotlari — skrinshot va profil YO'Q
@@ -975,18 +1029,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = data.split(":")
         payment_type = parts[1]
         
-        if payment_type == "premium":
-            clear(user_id)
-            users[user_id]["step"] = "payment_screenshot"
-            users[user_id]["payment_type"] = "premium"
-            
-            await query.message.reply_text(
-                t(user_id, "payment_premium", price=PREMIUM_PRICE, card=CARD, methods=PAYMENT_METHODS),
-                reply_markup=back_menu(user_id),
-                parse_mode="Markdown"
-            )
-        
-        elif payment_type == "course":
+        if payment_type == "course":
             course_id = parts[2] if len(parts) > 2 else None
             if not course_id:
                 return
@@ -1053,11 +1096,14 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username=username,
                 first_name=first_name
             )
-        elif payment_type == "premium":
+        elif payment_type == "combo":
+            combo_level = users[user_id].get("combo_level")
+            combo_country = users[user_id].get("combo_country")
             pay_id = create_payment(
                 user_id=user_id,
-                payment_type="premium",
-                amount=PREMIUM_PRICE,
+                payment_type="combo",
+                amount=COMBO_PRICE,
+                course_id=f"{combo_level}:{combo_country}",
                 screenshot_id=doc_id,
                 username=username,
                 first_name=first_name
@@ -1108,11 +1154,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username=username,
                 first_name=first_name
             )
-        elif payment_type == "premium":
+        elif payment_type == "combo":
+            combo_level = users[user_id].get("combo_level")
+            combo_country = users[user_id].get("combo_country")
             pay_id = create_payment(
                 user_id=user_id,
-                payment_type="premium",
-                amount=PREMIUM_PRICE,
+                payment_type="combo",
+                amount=COMBO_PRICE,
+                course_id=f"{combo_level}:{combo_country}",
                 screenshot_id=screenshot_id,
                 username=username,
                 first_name=first_name
@@ -1229,20 +1278,22 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
     approve_payment(pay_id)
     
     # Activate subscription
-    if payment_type == "premium":
-        expires = activate_premium(user_id)
+    if payment_type == "combo":
+        combo_level, combo_country = course_id.split(":", 1) if course_id and ":" in course_id else (None, None)
+        from courses import get_combo_course_ids as _get_combo_ids
+        uni_id, viza_ids = _get_combo_ids(combo_level, combo_country)
+        all_ids = ([uni_id] if uni_id else []) + viza_ids
+        activate_combo(user_id, all_ids)
         
-        # Get all group links
-        links = get_all_links()
-        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
+        link = get_country_link(combo_country)
+        link_text = f"\n\n🌍 {combo_country}: {link}" if link else ""
         
-        # Notify user
         await context.bot.send_message(
             user_id,
-            t(user_id, "premium_approved") + "\n\n" + links_text
+            t(user_id, "combo_approved") + link_text
         )
         
-        await update.message.reply_text(f"✅ Premium tasdiqlandi: {user_id}")
+        await update.message.reply_text(f"✅ Combo tasdiqlandi: {user_id}")
     
     elif payment_type == "course":
         expires = activate_course(user_id, course_id)
@@ -1314,11 +1365,45 @@ async def handle_admin_approve_internal(context, pay_id):
     
     approve_payment(pay_id)
     
-    if payment_type == "premium":
-        expires = activate_premium(user_id)
-        links = get_all_links()
-        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
-        await context.bot.send_message(user_id, t(user_id, "premium_approved") + "\n\n" + links_text, parse_mode="Markdown")
+    if payment_type == "combo":
+        combo_level, combo_country = course_id.split(":", 1) if course_id and ":" in course_id else (None, None)
+        from courses import get_combo_course_ids as _get_combo_ids, get_course_by_id
+        uni_id, viza_ids = _get_combo_ids(combo_level, combo_country)
+        all_ids = ([uni_id] if uni_id else []) + viza_ids
+        activate_combo(user_id, all_ids)
+
+        link = get_country_link(combo_country)
+        link_text = f"\n\n🌍 {combo_country}: {link}" if link else ""
+        await context.bot.send_message(user_id, t(user_id, "combo_approved") + link_text, parse_mode="Markdown")
+
+        # Send full content for each unlocked course (universitet + viza)
+        for cid in all_ids:
+            try:
+                course_info = get_course_by_id(cid)
+                if not course_info:
+                    continue
+                course_data = course_info["data"]
+                full = course_data.get("full", {})
+                full_text = full.get("text")
+                full_videos = full.get("videos", [])
+                full_photos = full.get("photos", [])
+
+                if full_text:
+                    await context.bot.send_message(user_id, full_text, parse_mode="Markdown")
+                for vid in full_videos:
+                    try:
+                        v2_id, v2_cap = _media_parts(vid)
+                        await context.bot.send_video(user_id, v2_id, caption=v2_cap, protect_content=True)
+                    except Exception:
+                        pass
+                for ph in full_photos:
+                    try:
+                        p2_id, p2_cap = _media_parts(ph)
+                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap, protect_content=True)
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f"Combo course send error: {e}")
     
     elif payment_type == "course":
         expires = activate_course(user_id, course_id)

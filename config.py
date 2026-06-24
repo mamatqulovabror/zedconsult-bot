@@ -8,7 +8,7 @@ CARD = "5614688706193314"
 PAYMENT_METHODS = "💳 Payme\n💳 Click\n💳 Alifmobi\n💳 Uzumbank\n💳 Hazna"
 
 # Prices
-PREMIUM_PRICE = 250  # USD
+COMBO_PRICE = 66    # USD - Universitet+Viza combo
 COURSE_PRICE = 44    # USD
 CONSULT_PRICE = 15   # USD
 
@@ -20,4 +20,4 @@ SLOT_INTERVAL = 30
 REMINDER_MINUTES = 30
 
 # About
-ABOUT_TEXT = "🎓 *Budget Viza* — chet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n💎 Premium obuna: $250/yil\n📚 Alohida kurs: $44/yil\n📞 Konsultatsiya: $15 (Premium uchun TEKIN)\n\n📱 Telegram: @budgetvizaadmin"
+ABOUT_TEXT = "🎓 *Budget Viza* — chet elda o'qish va ishlash bo'yicha professional maslahat xizmati.\n\n🎓 Universitet+Viza combo: $66/yil\n📚 Alohida kurs: $44/yil\n📞 Konsultatsiya: $15 (combo uchun 2 marta TEKIN)\n\n📱 Telegram: @budgetvizaadmin"

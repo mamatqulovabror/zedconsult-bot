@@ -26,7 +26,7 @@ def generate_payment_id():
 
 def create_payment(user_id, payment_type, amount, course_id=None, screenshot_id=None, username=None, first_name=None):
     """
-    payment_type: 'premium', 'course', 'consult'
+    payment_type: 'combo', 'course', 'consult'
     """
     payments = load_payments()
     pay_id = generate_payment_id()
@@ -87,7 +87,7 @@ def get_payment_stats():
     approved = len([p for p in payments.values() if p.get("status") == "approved"])
     rejected = len([p for p in payments.values() if p.get("status") == "rejected"])
     
-    premium_count = len([p for p in payments.values() if p.get("type") == "premium" and p.get("status") == "approved"])
+    combo_count = len([p for p in payments.values() if p.get("type") == "combo" and p.get("status") == "approved"])
     course_count = len([p for p in payments.values() if p.get("type") == "course" and p.get("status") == "approved"])
     consult_count = len([p for p in payments.values() if p.get("type") == "consult" and p.get("status") == "approved"])
     
@@ -103,7 +103,7 @@ def get_payment_stats():
         "pending": pending,
         "approved": approved,
         "rejected": rejected,
-        "premium_count": premium_count,
+        "combo_count": combo_count,
         "course_count": course_count,
         "consult_count": consult_count,
         "total_revenue": total_revenue

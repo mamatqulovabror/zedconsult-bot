@@ -435,3 +435,34 @@ def reorder_country(section, level, country_key, direction=None, position=None):
     courses["sections"][section]["levels"][level]["countries"] = new_countries
     save_courses(courses)
     return True
+
+
+def get_combo_course_ids(level_key, country_name):
+    """Universitet+Viza combo uchun: berilgan daraja (Bakalavr/Magistr/Doktorantura) nomi va davlat nomi bo'yicha
+    Universitet kursi va shu davlatdagi har qanday mavjud Viza kursini topadi.
+    Returns (uni_course_id, list_of_viza_course_ids) yoki (None, []) agar universitet kursi topilmasa.
+    """
+    courses = load_courses()
+    try:
+        uni_countries = courses["sections"]["universitet"]["levels"][level_key]["countries"]
+    except KeyError:
+        return None, []
+
+    uni_course = uni_countries.get(country_name)
+    if not uni_course:
+        return None, []
+
+    viza_ids = []
+    viza_levels = courses.get("sections", {}).get("viza", {}).get("levels", {})
+    for viza_level_key, viza_level in viza_levels.items():
+        viza_country = viza_level.get("countries", {}).get(country_name)
+        if viza_country:
+            viza_ids.append(viza_country.get("id"))
+
+    return uni_course.get("id"), viza_ids
+
+
+def combo_available(level_key, country_name):
+    """Combo faqat Universitet kursi VA kamida bitta Viza kursi mavjud bo'lgandagina ishlaydi."""
+    uni_id, viza_ids = get_combo_course_ids(level_key, country_name)
+    return bool(uni_id) and len(viza_ids) > 0

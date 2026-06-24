@@ -80,23 +80,42 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         from texts import get_welcome_media
         w_photo, w_video = get_welcome_media(user_id)
+        welcome_text = t(user_id, "welcome")
+        caption_ok = len(welcome_text) <= 1024
+
         if w_video:
-            await update.message.reply_video(
-                w_video,
-                caption=t(user_id, "welcome"),
-                reply_markup=main_menu(user_id),
-                parse_mode="Markdown"
-            )
+            if caption_ok:
+                await update.message.reply_video(
+                    w_video,
+                    caption=welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_video(w_video)
+                await update.message.reply_text(
+                    welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
         elif w_photo:
-            await update.message.reply_photo(
-                w_photo,
-                caption=t(user_id, "welcome"),
-                reply_markup=main_menu(user_id),
-                parse_mode="Markdown"
-            )
+            if caption_ok:
+                await update.message.reply_photo(
+                    w_photo,
+                    caption=welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_photo(w_photo)
+                await update.message.reply_text(
+                    welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
         else:
             await update.message.reply_text(
-                t(user_id, "welcome"),
+                welcome_text,
                 reply_markup=main_menu(user_id),
                 parse_mode="Markdown"
             )

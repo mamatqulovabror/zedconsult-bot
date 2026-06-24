@@ -9,7 +9,7 @@ def main_menu(user_id):
     
     rows = [
         [t(user_id, "btn_university"), t(user_id, "btn_consult")],
-        [t(user_id, "btn_work"), t(user_id, "btn_premium")],
+        [t(user_id, "btn_work"), t(user_id, "btn_combo")],
         [t(user_id, "btn_visa"), t(user_id, "btn_my_courses")],
         [t(user_id, "btn_about")],
     ]
@@ -76,7 +76,7 @@ def country_keyboard(countries, user_id):
 
 def course_action_keyboard(user_id, course_id, has_access=False):
     """Inline keyboard for course actions"""
-    from config import COURSE_PRICE, PREMIUM_PRICE
+    from config import COURSE_PRICE
     
     buttons = []
     
@@ -84,10 +84,6 @@ def course_action_keyboard(user_id, course_id, has_access=False):
         buttons.append([InlineKeyboardButton(
             f"💳 To'liq kursni sotib olish - ${COURSE_PRICE}",
             callback_data=f"buy:course:{course_id}"
-        )])
-        buttons.append([InlineKeyboardButton(
-            f"💎 Premium obuna - ${PREMIUM_PRICE}",
-            callback_data="buy:premium"
         )])
     
     buttons.append([InlineKeyboardButton(

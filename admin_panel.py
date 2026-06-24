@@ -9,7 +9,7 @@ from admins_db import is_admin, is_super_admin, get_all_admins, add_admin, remov
 from config import SUPER_ADMIN_ID
 from data import user_db, bookings_db
 from payments import get_pending_payments, get_payment_stats, get_payment, approve_payment, reject_payment
-from subscriptions import get_subscription_stats, activate_premium, activate_course
+from subscriptions import get_subscription_stats, activate_combo, activate_course
 from group_links import get_all_links, set_country_link, delete_country_link, get_country_link
 from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course, delete_demo_content, delete_full_content, set_expense_content, set_income_content, delete_expense_content, delete_income_content
 
@@ -552,7 +552,7 @@ async def show_statistics(update, context):
     
     text = f"📊 *STATISTIKA*\n\n"
     text += f"👥 Jami userlar: {len(user_db)}\n\n"
-    text += f"💎 Premium obunachilar: {sub_stats['premium_users']}\n"
+    text += f"🎓 Combo xaridorlari: {sub_stats['combo_users']}\n"
     text += f"📚 Sotilgan kurslar: {payment_stats['course_count']}\n"
     text += f"📞 Konsultatsiyalar: {payment_stats['consult_count']}\n\n"
     text += f"💰 *Jami daromad: ${payment_stats['total_revenue']}*\n\n"
@@ -650,8 +650,8 @@ async def show_pending_payments(update, context):
         payment_type = payment.get("type") or ""
         amount = payment.get("amount") or "?"
         date = payment.get("date") or "-"
-        if payment_type == "premium":
-            type_text = "Premium obuna"
+        if payment_type == "combo":
+            type_text = "Universitet+Viza combo"
         elif payment_type == "course":
             course_id = payment.get("course_id") or ""
             parts = course_id.split("_")
@@ -706,8 +706,8 @@ async def show_approved_payments(update, context):
             course_id = payment.get("course_id") or ""
             parts = course_id.split("_")
             type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:]) if len(parts) >= 3 else course_id
-        elif payment_type == "premium":
-            type_text = "Premium"
+        elif payment_type == "combo":
+            type_text = "Combo"
         else:
             type_text = "Konsultatsiya"
         if is_limited:
@@ -727,7 +727,7 @@ async def show_payment_stats(update, context):
     text += f"⏳ Kutayotgan: {stats['pending']}\n"
     text += f"✅ Tasdiqlangan: {stats['approved']}\n"
     text += f"❌ Rad etilgan: {stats['rejected']}\n\n"
-    text += f"💎 Premium: {stats['premium_count']}\n"
+    text += f"🎓 Combo: {stats['combo_count']}\n"
     text += f"📚 Kurslar: {stats['course_count']}\n"
     text += f"📞 Konsultatsiya: {stats['consult_count']}\n\n"
     text += f"💰 *Jami daromad: ${stats['total_revenue']}*"
@@ -1435,19 +1435,24 @@ async def handle_approve_command(update, context):
     
     from texts import t
     
-    if payment_type == "premium":
-        activate_premium(target_user_id)
-        links = get_all_links()
-        links_text = "\n".join([f"🌍 {country}: {link}" for country, link in links.items()])
+    if payment_type == "combo":
+        combo_level, combo_country = course_id.split(":", 1) if course_id and ":" in course_id else (None, None)
+        from courses import get_combo_course_ids
+        uni_id, viza_ids = get_combo_course_ids(combo_level, combo_country)
+        all_ids = ([uni_id] if uni_id else []) + viza_ids
+        activate_combo(target_user_id, all_ids)
+        
+        link = get_country_link(combo_country)
+        link_text = f"\n\n🌍 {combo_country}: {link}" if link else ""
         try:
             await context.bot.send_message(
                 target_user_id,
-                t(target_user_id, "premium_approved") + "\n\n" + links_text,
+                t(target_user_id, "combo_approved") + link_text,
                 parse_mode="Markdown"
             )
         except Exception:
             pass
-        await update.message.reply_text(f"✅ Premium tasdiqlandi: {target_user_id}")
+        await update.message.reply_text(f"✅ Combo tasdiqlandi: {target_user_id}")
     
     elif payment_type == "course":
         activate_course(target_user_id, course_id)

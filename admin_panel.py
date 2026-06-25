@@ -47,6 +47,7 @@ BTN_RESET_CANCEL = "❌ Yo'q, bekor"
 BTN_COURSE_UNI = "🎓 Universitet"
 BTN_COURSE_VISA = "✈️ Viza"
 BTN_COURSE_WORK = "💼 Ishga topshirish"
+BTN_COURSE_COMBO = "🎓✈️ Universitet+Viza"
 
 # Course levels
 BTN_LEVEL_BAKALAVR = "Bakalavr"
@@ -153,6 +154,7 @@ def courses_kb():
         [BTN_COURSE_UNI],
         [BTN_COURSE_VISA],
         [BTN_COURSE_WORK],
+        [BTN_COURSE_COMBO],
         [BTN_BACK]
     ], resize_keyboard=True)
 
@@ -398,11 +400,15 @@ async def navigate_to_screen(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await update.message.reply_text("📚 *Kurslar*\n\nBo'limni tanlang:", reply_markup=courses_kb(), parse_mode="Markdown")
     elif screen == "course_levels":
         section = get_state(user_id).get("section")
-        await update.message.reply_text("Darajani tanlang:", reply_markup=levels_kb(section))
+        levels_section = "universitet" if section == "combo_view" else section
+        await update.message.reply_text("Darajani tanlang:", reply_markup=levels_kb(levels_section))
     elif screen == "course_countries":
         section = get_state(user_id).get("section")
         level = get_state(user_id).get("level")
-        await show_course_countries_info(update, context, section, level)
+        if section == "combo_view":
+            await show_combo_countries_info(update, context, level)
+        else:
+            await show_course_countries_info(update, context, section, level)
     elif screen == "course_content":
         section = get_state(user_id).get("section")
         level = get_state(user_id).get("level")
@@ -750,13 +756,19 @@ async def handle_courses_screen(update, context, text):
         await navigate_to_screen(update, context, "course_levels")
         return True
     
+    if text == BTN_COURSE_COMBO:
+        set_state(user_id, section="combo_view")
+        await navigate_to_screen(update, context, "course_levels")
+        return True
+    
     return True
 
 
 async def handle_course_levels_screen(update, context, text):
     user_id = update.effective_user.id
     section = get_state(user_id).get("section")
-    levels = get_levels(section)
+    levels_section = "universitet" if section == "combo_view" else section
+    levels = get_levels(levels_section)
     
     for level_key, level in levels.items():
         if level["name"] == text:
@@ -771,6 +783,10 @@ async def handle_course_countries_screen(update, context, text):
     user_id = update.effective_user.id
     section = get_state(user_id).get("section")
     level = get_state(user_id).get("level")
+    
+    # combo_view is a read-only screen - only BTN_BACK is valid, ignore everything else
+    if section == "combo_view":
+        return True
     
     # EDIT MODE: waiting for new name input
     if get_state(user_id).get("mode") == "edit_country":
@@ -873,6 +889,32 @@ async def show_course_countries_info(update, context, section, level):
         text += "\nDavlatni tanlab kontentni boshqaring yoki yangi davlat qo'shing."
     
     await update.message.reply_text(text, reply_markup=countries_kb(section, level), parse_mode="Markdown")
+
+
+async def show_combo_countries_info(update, context, level):
+    """Show combo (Universitet+Viza) availability per country for a given level - view only"""
+    from courses import combo_available
+    
+    uni_countries = get_countries("universitet", level)
+    
+    if not uni_countries:
+        text = "🎓✈️ *Universitet+Viza combo*\n\nUshbu darajada hali Universitet kurslari qo'shilmagan.\n\nAvval 🎓 Universitet bo'limidan kurs qo'shing."
+    else:
+        text = "🎓✈️ *Universitet+Viza combo holati*\n\n"
+        ready_count = 0
+        for country_key, country in uni_countries.items():
+            is_ready = combo_available(level, country_key)
+            if is_ready:
+                ready_count += 1
+            mark = "✅" if is_ready else "⚠️"
+            text += f"{mark} {country['name']}\n"
+        text += f"\n✅ — combo tayyor ({ready_count} ta)\n"
+        text += "⚠️ — Viza kursi yo'q (combo ishlamaydi)\n\n"
+        text += "Combo avtomatik ishlaydi: bir davlatda HAM 🎓 Universitet, HAM ✈️ Viza kursi bo'lsa, mijozlar uchun 🎓✈️ Universitet+Viza combo tugmasi ochiladi.\n\n"
+        text += "Kurs qo'shish/tahrirlash uchun 🎓 Universitet va ✈️ Viza bo'limlaridan foydalaning."
+    
+    rows = [[BTN_BACK]]
+    await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(rows, resize_keyboard=True), parse_mode="Markdown")
 
 
 async def handle_course_content_screen(update, context, text):

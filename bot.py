@@ -547,30 +547,7 @@ async def show_course_content(query_or_update, context: ContextTypes.DEFAULT_TYP
 
 
 async def send_demo_course_inline(context, chat_id, user_id, course, course_id, section, level):
-    """Send demo course content with inline keyboard"""
-    demo = course.get("demo", {})
-    
-    # Send demo content (text, videos, photos)
-    demo_videos = demo.get("videos", [])
-    demo_video_old = demo.get("video")  # backward compat: old single-video format
-    if demo_video_old and not demo_videos:
-        demo_videos = [demo_video_old]
-    demo_text = demo.get("text")
-    demo_photos = demo.get("photos", [])
-    
-    if demo_text:
-        await context.bot.send_message(chat_id, t(user_id, "demo_content") + "\n\n" + demo_text, parse_mode="Markdown")
-    
-    for idx, dv in enumerate(demo_videos):
-        dv_id, dv_cap = _media_parts(dv)
-        caption = dv_cap if dv_cap else (t(user_id, "demo_content") if idx == 0 else None)
-        await context.bot.send_video(chat_id, dv_id, caption=caption, protect_content=True)
-    
-    for photo in demo_photos:
-        dp_id, dp_cap = _media_parts(photo)
-        await context.bot.send_photo(chat_id, dp_id, caption=dp_cap, protect_content=True)
-    
-    # Show expense/income (free) + buy button with back/home
+    """Show expense/income/buy buttons - content is shown only when a button is pressed"""
     buttons = [
         [
             InlineKeyboardButton("💰 Harajat", callback_data="info:expense:" + course_id),

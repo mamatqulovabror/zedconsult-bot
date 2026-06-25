@@ -746,8 +746,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             level_key = parts[2]
             country_key = parts[3]
             uni_id, viza_ids = get_combo_course_ids(level_key, country_key)
-            if not uni_id or not viza_ids:
-                await query.answer(t(user_id, "combo_unavailable"), show_alert=True)
+            if not uni_id:
+                await query.answer(t(user_id, "video_coming"), show_alert=True)
                 return
             
             clear(user_id)

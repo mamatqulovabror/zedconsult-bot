@@ -437,9 +437,19 @@ def reorder_country(section, level, country_key, direction=None, position=None):
     return True
 
 
+def _normalize_country_key(key):
+    """Normalize a country key for fuzzy matching: strip non-alphanumerics, lowercase."""
+    import re
+    s = str(key)
+    s = re.sub(r"[^0-9A-Za-zЀ-ӿĀ-ſ]+", "", s)
+    return s.lower()
+
+
 def get_combo_course_ids(level_key, country_name):
     """Universitet+Viza combo uchun: berilgan daraja (Bakalavr/Magistr/Doktorantura) nomi va davlat nomi bo'yicha
     Universitet kursi va shu davlatdagi har qanday mavjud Viza kursini topadi.
+    Davlat kalitlari ikki bo'limda turlicha yozilgan bo'lsa ham (probel, katta-kichik harf farqi),
+    normalizatsiya qilib moslashtiriladi.
     Returns (uni_course_id, list_of_viza_course_ids) yoki (None, []) agar universitet kursi topilmasa.
     """
     courses = load_courses()
@@ -450,12 +460,25 @@ def get_combo_course_ids(level_key, country_name):
 
     uni_course = uni_countries.get(country_name)
     if not uni_course:
+        target_norm = _normalize_country_key(country_name)
+        for k, v in uni_countries.items():
+            if _normalize_country_key(k) == target_norm:
+                uni_course = v
+                break
+    if not uni_course:
         return None, []
 
+    target_norm = _normalize_country_key(country_name)
     viza_ids = []
     viza_levels = courses.get("sections", {}).get("viza", {}).get("levels", {})
     for viza_level_key, viza_level in viza_levels.items():
-        viza_country = viza_level.get("countries", {}).get(country_name)
+        viza_countries = viza_level.get("countries", {})
+        viza_country = viza_countries.get(country_name)
+        if not viza_country:
+            for vk, vv in viza_countries.items():
+                if _normalize_country_key(vk) == target_norm:
+                    viza_country = vv
+                    break
         if viza_country:
             viza_ids.append(viza_country.get("id"))
 

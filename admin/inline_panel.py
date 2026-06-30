@@ -125,7 +125,8 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Users
     if section == "users":
-        await handle_users(query)
+        page = int(parts[2]) if len(parts) > 2 else 0
+        await handle_users(query, page)
         return
     
     # Bookings
@@ -174,20 +175,43 @@ async def handle_stats(query):
     )
 
 
-async def handle_users(query):
-    """Show users list"""
-    text = f"👥 *USERLAR*\n\nJami: {len(user_db)}\n\n"
-    
-    for uid, data in list(user_db.items())[:20]:
+async def handle_users(query, page: int = 0):
+    """Show users list with pagination"""
+    PAGE_SIZE = 30
+    all_users = list(user_db.items())
+    total = len(all_users)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    chunk = all_users[start:end]
+
+    text = f"👥 *USERLAR*\n\nJami: {total} | Sahifa: {page + 1}/{total_pages}\n\n"
+
+    for uid, data in chunk:
         name = data.get("first_name", "User")
-        text += f"• {name} — `{uid}`\n"
-    
-    if len(user_db) > 20:
-        text += f"\n... va yana {len(user_db) - 20} ta"
-    
+        last_name = data.get("last_name", "")
+        if last_name and last_name != "—":
+            name = f"{name} {last_name}"
+        username = data.get("username", "—")
+        username_str = f"@{username}" if username and username != "—" else "—"
+        text += f"• {name} ({username_str}) — `{uid}`\n"
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(_btn("⬅️ Oldingi", f"ap:users:{page - 1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(_btn("Keyingi ➡️", f"ap:users:{page + 1}"))
+
+    buttons = []
+    if nav_buttons:
+        buttons.append(nav_buttons)
+    buttons.append([_btn("🔙 Orqaga", "ap:home")])
+
     await query.edit_message_text(
         text,
-        reply_markup=_kb([[_btn("🔙 Orqaga", "ap:home")]]),
+        reply_markup=_kb(buttons),
         parse_mode="Markdown"
     )
 

@@ -11,7 +11,7 @@ def main_menu(user_id):
         [t(user_id, "btn_university"), t(user_id, "btn_consult")],
         [t(user_id, "btn_work"), t(user_id, "btn_combo")],
         [t(user_id, "btn_visa"), t(user_id, "btn_my_courses")],
-        [t(user_id, "btn_about")],
+        [t(user_id, "btn_profile"), t(user_id, "btn_about")],
     ]
     
     # Show "Bot boshqaruvi" for any admin (super admin gets full panel, others get limited view)
@@ -43,7 +43,7 @@ def phone_keyboard(user_id):
 def language_keyboard():
     """Language selection"""
     return ReplyKeyboardMarkup(
-        [["🇺🇿 O'zbek"], ["🇬🇧 English"]],
+        [["ðºð¿ O'zbek"], ["ð¬ð§ English"]],
         resize_keyboard=True
     )
 
@@ -82,12 +82,12 @@ def course_action_keyboard(user_id, course_id, has_access=False):
     
     if not has_access:
         buttons.append([InlineKeyboardButton(
-            f"💳 To'liq kursni sotib olish - ${COURSE_PRICE}",
+            f"ð³ To'liq kursni sotib olish - ${COURSE_PRICE}",
             callback_data=f"buy:course:{course_id}"
         )])
     
     buttons.append([InlineKeyboardButton(
-        "🔙 Orqaga",
+        "ð Orqaga",
         callback_data="course:back"
     )])
     
@@ -97,3 +97,15 @@ def course_action_keyboard(user_id, course_id, has_access=False):
 def payment_keyboard(user_id):
     """Payment confirmation keyboard"""
     return back_menu(user_id)
+
+
+def profile_keyboard(user_id, has_card):
+    """Inline keyboard for the profile section"""
+    buttons = [
+        [InlineKeyboardButton(t(user_id, "btn_withdraw"), callback_data="profile:withdraw")],
+    ]
+    if has_card:
+        buttons.append([InlineKeyboardButton(t(user_id, "btn_change_card"), callback_data="profile:add_card")])
+    else:
+        buttons.append([InlineKeyboardButton(t(user_id, "btn_add_card"), callback_data="profile:add_card")])
+    return InlineKeyboardMarkup(buttons)

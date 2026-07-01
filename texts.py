@@ -70,7 +70,9 @@ TEXTS = {
         "withdraw_not_enough_starts": "❌ Yechib olish uchun kamida {min_starts} ta referal start kerak.\n\nSizda hozir: {starts} ta",
         "withdraw_no_balance": "❌ Balansingizda yechib olish uchun mablag' yo'q.",
         "withdraw_success": "✅ So'rovingiz qabul qilindi!\n\n💰 Miqdor: {amount:,} so'm\n💳 Karta: {card_number}\n\n⏳ 5 kun ichida kartangizga o'tkaziladi.",
-        "welcome": "🎓 *Welcome to Budget Viza!*\n\nProfessional consulting for studying and working abroad!",
+    },
+        "en": {
+                    "welcome": "🎓 *Welcome to Budget Viza!*\n\nProfessional consulting for studying and working abroad!",
         "main_menu": "Choose a section:",
         
         # Course viewing

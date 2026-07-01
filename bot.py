@@ -1,1630 +1,1650 @@
 # -*- coding: utf-8 -*-
-"""
-Admin panel using ReplyKeyboard buttons (not inline)
-Faqat super admin uchun
-"""
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes
-from admins_db import is_admin, is_super_admin, get_all_admins, add_admin, remove_admin
-from config import SUPER_ADMIN_ID
-from data import user_db, bookings_db
-from payments import get_pending_payments, get_payment_stats, get_payment, approve_payment, reject_payment
-from subscriptions import get_subscription_stats, activate_combo, activate_course
-from group_links import get_all_links, set_country_link, delete_country_link, get_country_link
-from courses import get_sections, get_levels, get_countries, add_country_to_course, set_demo_content, set_full_content, get_course, delete_demo_content, delete_full_content, set_expense_content, set_income_content, delete_expense_content, delete_income_content
+import asyncio
+from datetime import datetime, timedelta
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    filters, ContextTypes, CallbackQueryHandler
+)
+from config import TOKEN, ADMIN_ID, CARD, PAYMENT_METHODS, REMINDER_MINUTES, SUPER_ADMIN_ID, COMBO_PRICE, COURSE_PRICE, CONSULT_PRICE
+from data import users, user_db, bookings_db, register_user, get_lang, save_booking, delete_booking
+from texts import t
+from keyboards import main_menu, back_menu, phone_keyboard, language_keyboard, level_keyboard, country_keyboard, course_action_keyboard, payment_keyboard
+from slots import ALL_SLOTS, generate_dates
+from admins_db import is_admin, get_all_admins
 
-# Admin panel state per user
-admin_state = {}
+def _media_parts(item):
+    """Extract (file_id, caption) from media item - supports old plain string and new dict format."""
+    if isinstance(item, dict):
+        return item.get("file_id"), item.get("caption") or None
+    return item, None
 
-# ============ BUTTON LABELS ============
-BTN_PAYMENTS = "💳 To'lovlar"
-BTN_COURSES = "📚 Kurslar"
-BTN_GROUPS = "🔗 Guruh linklar"
-BTN_STATS = "📊 Statistika"
-BTN_USERS = "👥 Userlar"
-BTN_BOOKINGS = "📋 Bronlar"
-BTN_ADMINS = "👮 Adminlar"
-BTN_BROADCAST = "📢 Broadcast"
-BTN_SEND_USER = "💬 Userga xabar"
-BTN_WELCOME_MSG = "🏠 Kirish xabari"
-BTN_REFERRALS = "💸 Referal to'lovlari"
-BTN_WELCOME_TEXT = "📝 Matnni tahrirlash"
-BTN_WELCOME_PHOTO = "🎥 Rasm qo'shish"
-BTN_WELCOME_VIDEO = "🎬 Video qo'shish"
-BTN_DEL_WELCOME_PHOTO = "🗑 Rasmni o'chir"
-BTN_DEL_WELCOME_VIDEO = "🗑 Videoni o'chir"
-BTN_EXIT = "🚪 Chiqish"
-BTN_BACK = "🔙 Orqaga"
+# Import new systems
+from payments import create_payment, get_pending_payments, approve_payment, reject_payment, get_payment
+from subscriptions import activate_combo, activate_course, is_premium, has_course_access, can_use_free_consult, use_free_consult, get_user_courses
+from group_links import get_country_link, get_all_links
+from courses import load_courses, get_sections, get_levels, get_countries, get_course, add_country_to_course, set_demo_content, set_full_content, seed_default_countries, get_combo_course_ids, combo_available
 
-# Payment submenu
-BTN_PAY_PENDING = "⏳ Kutayotgan to'lovlar"
-BTN_PAY_APPROVED = "✅ Tasdiqlangan"
-BTN_PAY_STATS = "📊 To'lov statistikasi"
-BTN_RESET_INCOME = "🔄 Daromadni reset qilish"
-BTN_RESET_CONFIRM = "✅ Ha, reset qilish"
-BTN_RESET_CANCEL = "❌ Yo'q, bekor"
+# Admin panel (new ReplyKeyboard based)
+from admin_panel import (
+    open_admin_panel, handle_admin_message, is_in_admin_panel,
+    handle_approve_command, handle_reject_command
+)
 
-# Courses submenu
-BTN_COURSE_UNI = "🎓 Universitet"
-BTN_COURSE_VISA = "✈️ Viza"
-BTN_COURSE_WORK = "💼 Ishga topshirish"
-BTN_COURSE_COMBO = "🎓✈️ Universitet+Viza"
-
-# Course levels
-BTN_LEVEL_BAKALAVR = "Bakalavr"
-BTN_LEVEL_MAGISTR = "Magistr"
-BTN_LEVEL_DOKTOR = "Doktorantura"
-
-# Content actions
-BTN_ADD_COUNTRY = "➕ Yangi davlat qo'shish"
-BTN_EDIT_COUNTRY = "✏️ Davlatni tahrirlash"
-BTN_DELETE_COUNTRY = "❌ Davlatni o'chirish"
-BTN_ADD_DEMO_VIDEO = "🎥 Demo video qo'shish"
-BTN_ADD_DEMO_TEXT = "📝 Demo text qo'shish"
-BTN_ADD_DEMO_PHOTO = "🖼 Demo rasm qo'shish"
-BTN_ADD_FULL_VIDEO = "🎥 To'liq video qo'shish"
-BTN_ADD_FULL_TEXT = "📝 To'liq text qo'shish"
-BTN_ADD_FULL_PHOTO = "🖼 To'liq rasm qo'shish"
-BTN_DEL_DEMO_VIDEO = "🗑 Demo video o'chir"
-BTN_DEL_DEMO_TEXT = "🗑 Demo text o'chir"
-BTN_DEL_DEMO_PHOTO = "🗑 Demo rasm o'chir"
-BTN_DEL_FULL_VIDEO = "🗑 To'liq video o'chir"
-BTN_DEL_FULL_TEXT = "🗑 To'liq text o'chir"
-BTN_DEL_FULL_PHOTO = "🗑 To'liq rasm o'chir"
-BTN_ADD_EXPENSE_VIDEO = "🎥 Harajat video qo'shish"
-BTN_ADD_EXPENSE_TEXT = "📝 Harajat text qo'shish"
-BTN_DEL_EXPENSE_VIDEO = "🗑 Harajat video o'chir"
-BTN_DEL_EXPENSE_TEXT = "🗑 Harajat text o'chir"
-BTN_ADD_INCOME_VIDEO = "🎥 Daromad video qo'shish"
-BTN_ADD_INCOME_TEXT = "📝 Daromad text qo'shish"
-BTN_DEL_INCOME_VIDEO = "🗑 Daromad video o'chir"
-BTN_DEL_INCOME_TEXT = "🗑 Daromad text o'chir"
-
-# Groups submenu
-BTN_ADD_GROUP = "➕ Yangi guruh qo'shish"
-
-# Admins submenu
-BTN_ADD_ADMIN = "➕ Admin qo'shish"
-
-# Cancel
-BTN_CANCEL = "❌ Bekor qilish"
+booked_slots = {}
 
 
-# ============ STATE MANAGEMENT ============
-def get_state(user_id):
-    return admin_state.get(user_id, {})
+def clear(user_id):
+    """Clear user state"""
+    if user_id in users:
+        users[user_id].clear()
 
 
-def set_state(user_id, **kwargs):
-    if user_id not in admin_state:
-        admin_state[user_id] = {}
-    admin_state[user_id].update(kwargs)
+def step(user_id):
+    """Get current user step"""
+    return users[user_id].get("step", "")
 
 
-def clear_state(user_id):
-    admin_state.pop(user_id, None)
+def is_back(text, user_id):
+    """Check if user pressed back/main button"""
+    back = t(user_id, "back")
+    main = t(user_id, "main")
+    return text in (back, main, "Orqaga", "Asosiy", "Back", "Main")
 
 
-def is_in_admin_panel(user_id):
-    return user_id in admin_state and admin_state[user_id].get("in_panel")
+def get_available_slots(date):
+    """Get available time slots for date"""
+    taken = booked_slots.get(date, set())
+    return [s for s in ALL_SLOTS if s not in taken]
 
 
-# ============ KEYBOARDS ============
-def welcome_menu_kb():
-    """Welcome message edit submenu"""
-    return ReplyKeyboardMarkup([
-        [BTN_WELCOME_TEXT],
-        [BTN_WELCOME_PHOTO, BTN_DEL_WELCOME_PHOTO],
-        [BTN_WELCOME_VIDEO, BTN_DEL_WELCOME_VIDEO],
-        [BTN_BACK]
-    ], resize_keyboard=True)
-
-
-def main_admin_kb():
-    """Main admin panel keyboard"""
-    return ReplyKeyboardMarkup([
-        [BTN_PAYMENTS, BTN_COURSES],
-        [BTN_GROUPS, BTN_STATS],
-        [BTN_USERS, BTN_BOOKINGS],
-        [BTN_ADMINS, BTN_BROADCAST],
-        [BTN_SEND_USER, BTN_WELCOME_MSG],
-        [BTN_REFERRALS],
-        [BTN_EXIT]
-    ], resize_keyboard=True)
-
-
-def payments_kb():
-    """Payments submenu"""
-    return ReplyKeyboardMarkup([
-        [BTN_PAY_PENDING],
-        [BTN_PAY_APPROVED, BTN_PAY_STATS],
-        [BTN_RESET_INCOME],
-        [BTN_BACK]
-    ], resize_keyboard=True)
-
-
-def reset_confirm_kb():
-    """Confirmation keyboard for income reset"""
-    return ReplyKeyboardMarkup([
-        [BTN_RESET_CONFIRM, BTN_RESET_CANCEL]
-    ], resize_keyboard=True)
-
-
-def courses_kb():
-    """Courses sections"""
-    return ReplyKeyboardMarkup([
-        [BTN_COURSE_UNI],
-        [BTN_COURSE_VISA],
-        [BTN_COURSE_WORK],
-        [BTN_COURSE_COMBO],
-        [BTN_BACK]
-    ], resize_keyboard=True)
-
-
-def levels_kb(section):
-    """Course levels for a section"""
-    levels = get_levels(section)
-    rows = []
-    for level_key, level in levels.items():
-        rows.append([level["name"]])
-    rows.append([BTN_BACK])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-
-def countries_kb(section, level):
-    countries = get_countries(section, level)
-    rows = []
-    for country_key, country in countries.items():
-        country_name = country["name"]
-        rows.append([country_name])
-        rows.append(["⬆️ " + country_name, "⬇️ " + country_name, "🔢 " + country_name])
-        rows.append(["✏️ " + country_name, "❌ " + country_name])
-    rows.append([BTN_ADD_COUNTRY])
-    rows.append([BTN_BACK])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-
-def country_content_kb():
-    """Content management for a country"""
-    return ReplyKeyboardMarkup([
-        [BTN_ADD_DEMO_VIDEO, BTN_DEL_DEMO_VIDEO],
-        [BTN_ADD_DEMO_TEXT, BTN_DEL_DEMO_TEXT],
-        [BTN_ADD_DEMO_PHOTO, BTN_DEL_DEMO_PHOTO],
-        [BTN_ADD_EXPENSE_VIDEO, BTN_DEL_EXPENSE_VIDEO],
-        [BTN_ADD_EXPENSE_TEXT, BTN_DEL_EXPENSE_TEXT],
-        [BTN_ADD_INCOME_VIDEO, BTN_DEL_INCOME_VIDEO],
-        [BTN_ADD_INCOME_TEXT, BTN_DEL_INCOME_TEXT],
-        [BTN_ADD_FULL_VIDEO, BTN_DEL_FULL_VIDEO],
-        [BTN_ADD_FULL_TEXT, BTN_DEL_FULL_TEXT],
-        [BTN_ADD_FULL_PHOTO, BTN_DEL_FULL_PHOTO],
-        [BTN_BACK]
-    ], resize_keyboard=True)
-
-
-def groups_kb():
-    """Groups management"""
-    links = get_all_links()
-    rows = []
-    for country in links.keys():
-        rows.append([country])
-    rows.append([BTN_ADD_GROUP])
-    rows.append([BTN_BACK])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-
-def admins_kb():
-    """Admins management"""
-    admins = get_all_admins()
-    rows = []
-    for aid in admins:
-        marker = "⭐️" if aid == SUPER_ADMIN_ID else "👤"
-        rows.append([f"{marker} {aid}"])
-    rows.append([BTN_ADD_ADMIN])
-    rows.append([BTN_BACK])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-
-def cancel_kb():
-    """Just cancel button"""
-    return ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
-
-
-def back_kb():
-    """Just back button"""
-    return ReplyKeyboardMarkup([[BTN_BACK]], resize_keyboard=True)
-
-
-# ============ ENTRY POINT ============
-async def open_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Open admin panel - main entry"""
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start command handler"""
     user_id = update.effective_user.id
-    
-    if not is_super_admin(user_id):
-        await update.message.reply_text("❌ Ruxsat yo'q")
-        return
-    
-    set_state(user_id, in_panel=True, screen="main")
-    
-    await update.message.reply_text(
-        "⚙️ *ADMIN PANEL*\n\nBo'limni tanlang:",
-        reply_markup=main_admin_kb(),
-        parse_mode="Markdown"
-    )
-
-
-BTN_LIMITED_APPROVED = "✅ Tasdiqlangan tolovlar"
-BTN_LIMITED_EXIT = "❌ Chiqish"
-
-
-def limited_admin_kb():
-    """Limited keyboard for non-super admins - view only"""
-    return ReplyKeyboardMarkup([
-        [BTN_LIMITED_APPROVED],
-        [BTN_LIMITED_EXIT]
-    ], resize_keyboard=True)
-
-
-async def open_limited_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Open limited admin panel - view only for non-super admins"""
-    user_id = update.effective_user.id
-    set_state(user_id, in_panel=True, screen="limited_main")
-    await update.message.reply_text(
-        "⚙️ *BOT BOSHQARUVI*\n\nFaqat tasdiqlangan tolovlarni korishingiz mumkin.",
-        reply_markup=limited_admin_kb(),
-        parse_mode="Markdown"
-    )
-
-
-async def handle_limited_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Handle messages for limited (non-super) admins - read-only access"""
-    user_id = update.effective_user.id
-    text = update.message.text if update.message.text else ""
-
-    if text == BTN_LIMITED_EXIT:
-        set_state(user_id, in_panel=False, screen="main")
-        from keyboards import main_menu
-        await update.message.reply_text("✅ Chiqdingiz", reply_markup=main_menu(user_id))
-        return True
-
-    if text == BTN_LIMITED_APPROVED:
-        await show_approved_payments(update, context)
-        return True
-
-    # Any other input while in limited panel - just reshow the keyboard
-    await update.message.reply_text(
-        "Iltimos, tugmalardan foydalaning.",
-        reply_markup=limited_admin_kb()
-    )
-    return True
-
-
-async def exit_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Exit admin panel"""
-    from keyboards import main_menu
-    user_id = update.effective_user.id
-    clear_state(user_id)
-    
-    await update.message.reply_text(
-        "✅ Asosiy menyuga qaytdingiz",
-        reply_markup=main_menu(user_id)
-    )
-
-
-# ============ MAIN HANDLER ============
-async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """
-    Main admin panel message handler.
-    Returns True if message was handled, False otherwise.
-    """
-    user_id = update.effective_user.id
-    
-    if not is_in_admin_panel(user_id):
-        return False
-    
-    if not is_super_admin(user_id):
-        return await handle_limited_admin_message(update, context)
-    
-    text = update.message.text if update.message.text else ""
-    state = get_state(user_id)
-    screen = state.get("screen", "main")
-    mode = state.get("mode", "")
-    
-    # ===== EXIT =====
-    if text == BTN_EXIT:
-        await exit_admin_panel(update, context)
-        return True
-    
-    # ===== CANCEL =====
-    if text == BTN_CANCEL:
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, screen)
-        return True
-    
-    # ===== INPUT MODES (text/photo/video for adding content) =====
-    if mode and mode not in ("edit_country", "reorder_country", "confirm_reset_income"):
-        return await handle_input_mode(update, context, mode)
-    
-    # ===== BACK =====
-    if text == BTN_BACK:
-        await handle_back(update, context)
-        return True
-    
-    # ===== MAIN SCREEN =====
-    if screen == "main":
-        return await handle_main_screen(update, context, text)
-    
-    # ===== PAYMENTS SCREEN =====
-    if screen == "payments":
-        return await handle_payments_screen(update, context, text)
-    
-    # ===== COURSES SCREENS =====
-    if screen == "courses":
-        return await handle_courses_screen(update, context, text)
-    
-    if screen == "course_levels":
-        return await handle_course_levels_screen(update, context, text)
-    
-    if screen == "course_countries":
-        return await handle_course_countries_screen(update, context, text)
-    
-    if screen == "course_content":
-        return await handle_course_content_screen(update, context, text)
-    
-    # ===== GROUPS SCREEN =====
-    if screen == "groups":
-        return await handle_groups_screen(update, context, text)
-    
-    if screen == "group_edit":
-        return await handle_group_edit_screen(update, context, text)
-    
-    # ===== ADMINS SCREEN =====
-    if screen == "admins":
-        return await handle_admins_screen(update, context, text)
-    
-    # ===== WELCOME MENU SCREEN =====
-    if screen == "welcome_menu":
-        return await handle_main_screen(update, context, text)
-    
-    return False
-
-
-# ============ NAVIGATION ============
-async def navigate_to_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, screen: str):
-    """Navigate to a specific screen"""
-    user_id = update.effective_user.id
-    set_state(user_id, screen=screen)
-    
-    if screen == "main":
-        await update.message.reply_text("⚙️ *ADMIN PANEL*", reply_markup=main_admin_kb(), parse_mode="Markdown")
-    elif screen == "payments":
-        await update.message.reply_text("💳 *To'lovlar*", reply_markup=payments_kb(), parse_mode="Markdown")
-    elif screen == "courses":
-        await update.message.reply_text("📚 *Kurslar*\n\nBo'limni tanlang:", reply_markup=courses_kb(), parse_mode="Markdown")
-    elif screen == "course_levels":
-        section = get_state(user_id).get("section")
-        levels_section = "universitet" if section == "combo_view" else section
-        await update.message.reply_text("Darajani tanlang:", reply_markup=levels_kb(levels_section))
-    elif screen == "course_countries":
-        section = get_state(user_id).get("section")
-        level = get_state(user_id).get("level")
-        if section == "combo_view":
-            await show_combo_countries_info(update, context, level)
-        else:
-            await show_course_countries_info(update, context, section, level)
-    elif screen == "course_content":
-        section = get_state(user_id).get("section")
-        level = get_state(user_id).get("level")
-        country = get_state(user_id).get("country")
-        await show_course_content_info(update, context, section, level, country)
-    elif screen == "groups":
-        await show_groups_info(update, context)
-    elif screen == "admins":
-        await show_admins_info(update, context)
-
-
-async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle back button"""
-    user_id = update.effective_user.id
-    state = get_state(user_id)
-    screen = state.get("screen", "main")
-    
-    # Determine parent screen
-    if screen in ["payments", "courses", "groups", "stats", "users", "bookings", "admins"]:
-        await navigate_to_screen(update, context, "main")
-    elif screen == "course_levels":
-        await navigate_to_screen(update, context, "courses")
-    elif screen == "course_countries":
-        await navigate_to_screen(update, context, "course_levels")
-    elif screen == "course_content":
-        await navigate_to_screen(update, context, "course_countries")
-    elif screen == "group_edit":
-        await navigate_to_screen(update, context, "groups")
-    else:
-        await navigate_to_screen(update, context, "main")
-
-
-# ============ MAIN SCREEN HANDLER ============
-async def handle_main_screen(update, context, text):
-    user_id = update.effective_user.id
-    screen = get_state(user_id).get("screen", "main")
-    
-    if text == BTN_PAYMENTS:
-        await navigate_to_screen(update, context, "payments")
-        return True
-    
-    if text == BTN_COURSES:
-        await navigate_to_screen(update, context, "courses")
-        return True
-    
-    if text == BTN_GROUPS:
-        await navigate_to_screen(update, context, "groups")
-        return True
-    
-    if text == BTN_STATS:
-        await show_statistics(update, context)
-        return True
-    
-    if text == BTN_USERS:
-        await show_users(update, context)
-        return True
-    
-    if text == BTN_BOOKINGS:
-        await show_bookings(update, context)
-        return True
-    
-    if text == BTN_ADMINS:
-        await navigate_to_screen(update, context, "admins")
-        return True
-    
-    if text == BTN_BROADCAST:
-        set_state(user_id, mode="broadcast")
-        await update.message.reply_text(
-            "📢 *Broadcast*\n\nXabarni yuboring (matn/rasm/video):",
-            reply_markup=cancel_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-    
-    if text == BTN_SEND_USER:
-        from data import user_db
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        users_list = list(user_db.items())
-        if not users_list:
-            await update.message.reply_text("Hech qanday user yoq", reply_markup=main_admin_kb())
-            return True
-        buttons = []
-        for uid, udata in users_list[:40]:
-            uname = udata.get("username") or "-"
-            fname = udata.get("first_name") or "User"
-            buttons.append([InlineKeyboardButton(
-                str(fname) + " (@" + str(uname) + ") | " + str(uid),
-                callback_data="su:" + str(uid)
-            )])
-        buttons.append([InlineKeyboardButton("Bekor", callback_data="su:cancel")])
-        await update.message.reply_text(
-            "Qaysi userni tanlang (" + str(len(users_list)) + " ta):",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        return True
-    
-    if text == BTN_WELCOME_MSG:
-        set_state(user_id, screen="welcome_menu")
-        await update.message.reply_text(
-            "🏠 *Kirish xabari*\n\nNimani tahrirlamoqchisiz?",
-            reply_markup=welcome_menu_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-
-    if text == BTN_REFERRALS:
-        await show_referral_payouts(update, context)
-        return True
-    
-    if screen == "welcome_menu":
-        if text == BTN_WELCOME_TEXT:
-            from texts import get_custom_welcome, TEXTS
-            current = get_custom_welcome("uz")
-            current_text = (current.get("text") if current else None) or TEXTS["uz"]["welcome"]
-            set_state(user_id, mode="edit_welcome")
-            await update.message.reply_text(
-                "Hozirgi matn:\n" + str(current_text) + "\n\nYangi matnni yuboring:",
-                reply_markup=cancel_kb()
-            )
-            return True
-        if text == BTN_WELCOME_PHOTO:
-            set_state(user_id, mode="edit_welcome_photo")
-            await update.message.reply_text("Yangi rasmni yuboring:", reply_markup=cancel_kb())
-            return True
-        if text == BTN_WELCOME_VIDEO:
-            set_state(user_id, mode="edit_welcome_video")
-            await update.message.reply_text("Yangi videoni yuboring:", reply_markup=cancel_kb())
-            return True
-        if text == BTN_DEL_WELCOME_PHOTO:
-            from texts import save_custom_welcome
-            save_custom_welcome(photo="")
-            await update.message.reply_text("✅ Kirish rasmi o'chirildi!", reply_markup=welcome_menu_kb())
-            return True
-        if text == BTN_DEL_WELCOME_VIDEO:
-            from texts import save_custom_welcome
-            save_custom_welcome(video="")
-            await update.message.reply_text("✅ Kirish videosi o'chirildi!", reply_markup=welcome_menu_kb())
-            return True
-        if text == BTN_BACK:
-            set_state(user_id, screen="main")
-            await update.message.reply_text("⚙️ Bot boshqaruvi", reply_markup=main_admin_kb())
-            return True
-    
-    return True  # we're in admin panel, swallow other messages
-
-
-# ============ REFERRAL PAYOUTS ============
-async def show_referral_payouts(update, context):
-    from referrals import get_pending_payouts, mark_payout_paid
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-    pending = get_pending_payouts()
-    if not pending:
-        await update.message.reply_text(
-            "💸 *Referal to'lovlari*\n\nHozircha kutayotgan so'rovlar yo'q.",
-            reply_markup=main_admin_kb(),
-            parse_mode="Markdown"
-        )
-        return
-
-    for req in pending:
-        text = (
-            f"💸 *To'lov so'rovi* `{req['id']}`\n\n"
-            f"👤 User ID: `{req['user_id']}`\n"
-            f"💰 Miqdor: {req['amount_som']:,} so'm\n"
-            f"💳 Karta: {req['card_number']}\n"
-            f"👤 Karta egasi: {req['card_holder']}\n"
-            f"📅 Sana: {req['date']}"
-        )
-        buttons = [[InlineKeyboardButton("✅ To'landi deb belgilash", callback_data=f"payout:paid:{req['id']}")]]
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
-
-    await update.message.reply_text(
-        f"Jami kutayotgan so'rovlar: {len(pending)} ta",
-        reply_markup=main_admin_kb()
-    )
-
-
-# ============ STATISTICS ============
-async def show_statistics(update, context):
-    payment_stats = get_payment_stats()
-    sub_stats = get_subscription_stats()
-    
-    text = f"📊 *STATISTIKA*\n\n"
-    text += f"👥 Jami userlar: {len(user_db)}\n\n"
-    text += f"🎓 Combo xaridorlari: {sub_stats['combo_users']}\n"
-    text += f"📚 Sotilgan kurslar: {payment_stats['course_count']}\n"
-    text += f"📞 Konsultatsiyalar: {payment_stats['consult_count']}\n\n"
-    text += f"💰 *Jami daromad: ${payment_stats['total_revenue']}*\n\n"
-    text += f"⏳ Kutayotgan to'lovlar: {payment_stats['pending']}\n"
-    text += f"✅ Tasdiqlangan: {payment_stats['approved']}\n"
-    text += f"❌ Rad etilgan: {payment_stats['rejected']}"
-    
-    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
-
-
-USERS_PER_PAGE = 30
-
-
-async def show_users(update, context, page=0):
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-    all_users = list(user_db.items())
-    total = len(all_users)
-    total_pages = max(1, (total + USERS_PER_PAGE - 1) // USERS_PER_PAGE)
-    page = max(0, min(page, total_pages - 1))
-
-    start_idx = page * USERS_PER_PAGE
-    end_idx = start_idx + USERS_PER_PAGE
-    page_users = all_users[start_idx:end_idx]
-
-    text = f"👥 *USERLAR*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
-    for uid, data in page_users:
-        name = data.get("first_name", "User")
-        text += f"• {name} — `{uid}`\n"
-
-    nav_buttons = []
-    if page > 0:
-        nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"users_page:{page - 1}"))
-    if page < total_pages - 1:
-        nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_page:{page + 1}"))
-
-    markup = InlineKeyboardMarkup([nav_buttons]) if nav_buttons else None
-
-    if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
-    else:
-        await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
-        if markup:
-            await update.message.reply_text("Sahifalar:", reply_markup=markup)
-
-
-async def show_bookings(update, context):
-    if not bookings_db:
-        text = "📋 *BRONLAR*\n\nBronlar yo'q"
-    else:
-        text = "📋 *OXIRGI BRONLAR:*\n\n"
-        for uid, bdata in list(bookings_db.items())[-10:]:
-            name = bdata.get("name", "-")
-            phone = bdata.get("phone", "-")
-            date = bdata.get("date", "-")
-            slot = bdata.get("slot", "-")
-            text += f"👤 {name}\n📱 {phone}\n📅 {date} {slot}\n🆔 `{uid}`\n\n"
-    
-    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
-
-
-# ============ PAYMENTS HANDLERS ============
-async def handle_payments_screen(update, context, text):
-    user_id = update.effective_user.id
-    
-    if text == BTN_PAY_PENDING:
-        await show_pending_payments(update, context)
-        return True
-    
-    if text == BTN_PAY_APPROVED:
-        await show_approved_payments(update, context)
-        return True
-    
-    if text == BTN_PAY_STATS:
-        await show_payment_stats(update, context)
-        return True
-    
-    if text == BTN_RESET_INCOME:
-        set_state(user_id, mode="confirm_reset_income")
-        await update.message.reply_text(
-            "⚠️ *Diqqat!*\n\nJami daromad hisoblagichi 0'ga qaytariladi. To'lovlar tarixi o'chmaydi, faqat statistikadagi jami summa reset bo'ladi.\n\nDavom etasizmi?",
-            reply_markup=reset_confirm_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-    
-    if text == BTN_RESET_CONFIRM and get_state(user_id).get("mode") == "confirm_reset_income":
-        from payments import reset_total_income
-        reset_total_income()
-        set_state(user_id, mode="")
-        await update.message.reply_text("✅ Jami daromad reset qilindi!", reply_markup=payments_kb())
-        return True
-    
-    if text == BTN_RESET_CANCEL and get_state(user_id).get("mode") == "confirm_reset_income":
-        set_state(user_id, mode="")
-        await update.message.reply_text("❌ Bekor qilindi", reply_markup=payments_kb())
-        return True
-    
-    # Check if user clicked on a payment ID
-    if text.startswith("✅ ") or text.startswith("❌ "):
-        await handle_payment_action(update, context, text)
-        return True
-    
-    return True
-
-
-async def show_pending_payments(update, context):
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    pending = get_pending_payments()
-    if not pending:
-        await update.message.reply_text("Kutayotgan tolovlar yoq", reply_markup=payments_kb())
-        return
-    await update.message.reply_text("Kutayotgan tolovlar: " + str(len(pending)) + " ta", reply_markup=payments_kb())
-    for pay_id, payment in list(pending.items()):
-        uid = payment.get("user_id")
-        username = payment.get("username") or "-"
-        first_name = payment.get("first_name") or "User"
-        payment_type = payment.get("type") or ""
-        amount = payment.get("amount") or "?"
-        date = payment.get("date") or "-"
-        if payment_type == "combo":
-            type_text = "Universitet+Viza combo"
-        elif payment_type == "course":
-            course_id = payment.get("course_id") or ""
-            parts = course_id.split("_")
-            type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:]) if len(parts) >= 3 else course_id
-        else:
-            type_text = "Konsultatsiya"
-        msg = str(first_name) + " (@" + str(username) + ")\n" + str(uid) + "\n$" + str(amount) + "\n" + type_text + "\n" + str(date) + "\n" + str(pay_id)
-        kb = InlineKeyboardMarkup([[
-            InlineKeyboardButton("Tasdiqlash", callback_data="admin:approve:" + str(pay_id)),
-            InlineKeyboardButton("Rad etish", callback_data="admin:reject:" + str(pay_id))
-        ]])
-        sc = payment.get("screenshot") or payment.get("screenshot_id")
-        try:
-            if sc:
-                await context.bot.send_photo(chat_id=update.effective_chat.id, photo=sc, caption=msg, reply_markup=kb)
-            else:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, reply_markup=kb)
-        except Exception:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, reply_markup=kb)
-
-
-async def show_approved_payments(update, context):
-    from payments import get_approved_payments
-    from admins_db import get_admin_joined_at
-    uid_caller = update.effective_user.id
-    is_limited = not is_super_admin(uid_caller)
-    kb_to_use = limited_admin_kb() if is_limited else payments_kb()
-    approved = get_approved_payments()
-
-    # Limited (non-super) admins only see payments approved after they became admin, no customer info
-    if is_limited:
-        joined_at = get_admin_joined_at(uid_caller)
-        items = list(approved.items())
-        if joined_at:
-            items = [(pid, p) for pid, p in items if (p.get("date") or "") >= joined_at]
-        items = items[-15:]
-    else:
-        items = list(approved.items())[-15:]
-
-    if not items:
-        await update.message.reply_text("Tasdiqlangan tolovlar yoq", reply_markup=kb_to_use)
-        return
-
-    text = "Tasdiqlangan tolovlar (oxirgi " + str(len(items)) + " ta):\n\n"
-    for pay_id, payment in items:
-        username = payment.get("username") or "-"
-        first_name = payment.get("first_name") or "User"
-        payment_type = payment.get("type") or ""
-        amount = payment.get("amount") or "?"
-        date = payment.get("date") or "-"
-        if payment_type == "course":
-            course_id = payment.get("course_id") or ""
-            parts = course_id.split("_")
-            type_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:]) if len(parts) >= 3 else course_id
-        elif payment_type == "combo":
-            type_text = "Combo"
-        else:
-            type_text = "Konsultatsiya"
-        if is_limited:
-            text += "$" + str(amount) + " | " + type_text + "\n"
-            text += "  " + str(date) + "\n\n"
-        else:
-            text += str(first_name) + " (@" + str(username) + ")\n"
-            text += "  $" + str(amount) + " | " + type_text + "\n"
-            text += "  " + str(date) + "\n\n"
-    await update.message.reply_text(text, reply_markup=kb_to_use)
-
-
-async def show_payment_stats(update, context):
-    stats = get_payment_stats()
-    
-    text = f"📊 *TO'LOV STATISTIKASI*\n\n"
-    text += f"⏳ Kutayotgan: {stats['pending']}\n"
-    text += f"✅ Tasdiqlangan: {stats['approved']}\n"
-    text += f"❌ Rad etilgan: {stats['rejected']}\n\n"
-    text += f"🎓 Combo: {stats['combo_count']}\n"
-    text += f"📚 Kurslar: {stats['course_count']}\n"
-    text += f"📞 Konsultatsiya: {stats['consult_count']}\n\n"
-    text += f"💰 *Jami daromad: ${stats['total_revenue']}*"
-    
-    await update.message.reply_text(text, reply_markup=payments_kb(), parse_mode="Markdown")
-
-
-# ============ COURSES HANDLERS ============
-async def handle_courses_screen(update, context, text):
-    user_id = update.effective_user.id
-    
-    section_map = {
-        BTN_COURSE_UNI: "universitet",
-        BTN_COURSE_VISA: "viza",
-        BTN_COURSE_WORK: "ish"
-    }
-    
-    if text in section_map:
-        set_state(user_id, section=section_map[text])
-        await navigate_to_screen(update, context, "course_levels")
-        return True
-    
-    if text == BTN_COURSE_COMBO:
-        set_state(user_id, section="combo_view")
-        await navigate_to_screen(update, context, "course_levels")
-        return True
-    
-    return True
-
-
-async def handle_course_levels_screen(update, context, text):
-    user_id = update.effective_user.id
-    section = get_state(user_id).get("section")
-    levels_section = "universitet" if section == "combo_view" else section
-    levels = get_levels(levels_section)
-    
-    for level_key, level in levels.items():
-        if level["name"] == text:
-            set_state(user_id, level=level_key)
-            await navigate_to_screen(update, context, "course_countries")
-            return True
-    
-    return True
-
-
-async def handle_course_countries_screen(update, context, text):
-    user_id = update.effective_user.id
-    section = get_state(user_id).get("section")
-    level = get_state(user_id).get("level")
-    
-    # combo_view is a read-only screen - only BTN_BACK is valid, ignore everything else
-    if section == "combo_view":
-        return True
-    
-    # EDIT MODE: waiting for new name input
-    if get_state(user_id).get("mode") == "edit_country":
-        old_key = get_state(user_id).get("edit_country_old")
-        try:
-            from courses import load_courses, save_courses
-            from subscriptions import load_subscriptions, save_subscriptions
-            cd = load_courses()
-            cdict = cd["sections"][section]["levels"][level]["countries"]
-            old_display = cdict[old_key].get("name", old_key)
-            cdict[text] = cdict.pop(old_key)
-            cdict[text]["name"] = text
-            save_courses(cd)
-            subs = load_subscriptions()
-            cnt = 0
-            for uid_str, ud in subs.items():
-                for c in ud.get("courses", []):
-                    cid = str(c.get("id", ""))
-                    if cid.startswith(f"{section}_{level}_{old_key}"):
-                        c["id"] = cid.replace(f"{section}_{level}_{old_key}", f"{section}_{level}_{text}")
-                        cnt += 1
-            save_subscriptions(subs)
-            set_state(user_id, mode="")
-            await update.message.reply_text(f"\u2705 {old_display} \u2192 {text}\n\ud83d\udce2 Mijozlar: {cnt} ta kurs o'zgartirildi", parse_mode="Markdown")
-            await navigate_to_screen(update, context, "course_countries")
-        except Exception as e:
-            set_state(user_id, mode="")
-            await update.message.reply_text(f"\u274c Xato: {e}")
-        return True
-    
-    if text == BTN_ADD_COUNTRY:
-        set_state(user_id, mode="add_country")
-        await update.message.reply_text(
-            "\u2795 *Yangi davlat qo'shish*\n\nDavlat nomini yozing:",
-            reply_markup=cancel_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-    
-    countries = get_countries(section, level)
-    
-    # EDIT button - ask for new name
-    for country_key, country in countries.items():
-        if text == f"\u270f\ufe0f {country['name']}":
-            set_state(user_id, mode="edit_country", edit_country_old=country_key)
-            await update.message.reply_text(
-                f"\u270f\ufe0f *{country['name']}*\n\nYangi nomini yozing:",
-                reply_markup=cancel_kb(),
-                parse_mode="Markdown"
-            )
-            return True
-    
-    # DELETE button - DIRECT, no confirmation
-    for country_key, country in countries.items():
-        if text == f"\u274c {country['name']}":
-            try:
-                from courses import load_courses, save_courses
-                from subscriptions import load_subscriptions, save_subscriptions
-                cd = load_courses()
-                cdict = cd["sections"][section]["levels"][level]["countries"]
-                display = cdict[country_key].get("name", country_key)
-                del cdict[country_key]
-                save_courses(cd)
-                subs = load_subscriptions()
-                cnt = 0
-                for uid_str, ud in subs.items():
-                    cl = ud.get("courses", [])
-                    before = len(cl)
-                    cl[:] = [c for c in cl if not str(c.get("id","")).startswith(f"{section}_{level}_{country_key}")]
-                    if len(cl) < before:
-                        cnt += 1
-                save_subscriptions(subs)
-                await update.message.reply_text(
-                    f"\u274c *{display} o'chirildi!*\n\ud83d\udce2 Mijozlar akkountidan: {cnt} ta kurs o'chirildi",
-                    parse_mode="Markdown"
-                )
-                await navigate_to_screen(update, context, "course_countries")
-            except Exception as e:
-                await update.message.reply_text(f"\u274c Xato: {e}")
-            return True
-    
-    # Regular country selection
-    for country_key, country in countries.items():
-        if country["name"] == text:
-            set_state(user_id, country=country_key)
-            await navigate_to_screen(update, context, "course_content")
-            return True
-    
-    return True
-
-async def show_course_countries_info(update, context, section, level):
-    countries = get_countries(section, level)
-    
-    if not countries:
-        text = "📚 *Davlatlar*\n\nHali davlatlar qo'shilmagan.\n\n➕ Yangi davlat qo'shish tugmasini bosing."
-    else:
-        text = f"📚 *Mavjud davlatlar:* {len(countries)} ta\n\n"
-        for country in countries.values():
-            text += f"• {country['name']}\n"
-        text += "\nDavlatni tanlab kontentni boshqaring yoki yangi davlat qo'shing."
-    
-    await update.message.reply_text(text, reply_markup=countries_kb(section, level), parse_mode="Markdown")
-
-
-async def show_combo_countries_info(update, context, level):
-    """Show combo (Universitet+Viza) availability per country for a given level - view only"""
-    from courses import combo_available
-    
-    uni_countries = get_countries("universitet", level)
-    
-    if not uni_countries:
-        text = "🎓✈️ *Universitet+Viza combo*\n\nUshbu darajada hali Universitet kurslari qo'shilmagan.\n\nAvval 🎓 Universitet bo'limidan kurs qo'shing."
-    else:
-        text = "🎓✈️ *Universitet+Viza combo holati*\n\n"
-        ready_count = 0
-        for country_key, country in uni_countries.items():
-            is_ready = combo_available(level, country_key)
-            if is_ready:
-                ready_count += 1
-            mark = "✅" if is_ready else "⚠️"
-            text += f"{mark} {country['name']}\n"
-        text += f"\n✅ — combo tayyor ({ready_count} ta)\n"
-        text += "⚠️ — Viza kursi yo'q (combo ishlamaydi)\n\n"
-        text += "Combo avtomatik ishlaydi: bir davlatda HAM 🎓 Universitet, HAM ✈️ Viza kursi bo'lsa, mijozlar uchun 🎓✈️ Universitet+Viza combo tugmasi ochiladi.\n\n"
-        text += "Kurs qo'shish/tahrirlash uchun 🎓 Universitet va ✈️ Viza bo'limlaridan foydalaning."
-    
-    rows = [[BTN_BACK]]
-    await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(rows, resize_keyboard=True), parse_mode="Markdown")
-
-
-async def handle_course_content_screen(update, context, text):
-    user_id = update.effective_user.id
-    section = get_state(user_id).get("section")
-    level = get_state(user_id).get("level")
-    country = get_state(user_id).get("country")
-    
-    if text == BTN_ADD_DEMO_VIDEO:
-        set_state(user_id, mode="add_demo_video")
-        await update.message.reply_text("🎥 Demo video yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_DEMO_TEXT:
-        set_state(user_id, mode="add_demo_text")
-        await update.message.reply_text("📝 Demo text yozing:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_DEMO_PHOTO:
-        set_state(user_id, mode="add_demo_photo")
-        await update.message.reply_text("🖼 Demo rasm yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_EXPENSE_VIDEO:
-        set_state(user_id, mode="add_expense_video")
-        await update.message.reply_text("🎥 Harajat video yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_EXPENSE_TEXT:
-        set_state(user_id, mode="add_expense_text")
-        await update.message.reply_text("📝 Harajat text yozing:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_INCOME_VIDEO:
-        set_state(user_id, mode="add_income_video")
-        await update.message.reply_text("🎥 Daromad video yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_INCOME_TEXT:
-        set_state(user_id, mode="add_income_text")
-        await update.message.reply_text("📝 Daromad text yozing:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_FULL_VIDEO:
-        set_state(user_id, mode="add_full_video")
-        await update.message.reply_text("🎥 To'liq kurs video yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_FULL_TEXT:
-        set_state(user_id, mode="add_full_text")
-        await update.message.reply_text("📝 To'liq kurs text yozing:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_ADD_FULL_PHOTO:
-        set_state(user_id, mode="add_full_photo")
-        await update.message.reply_text("🖼 To'liq kurs rasm yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if text == BTN_DEL_DEMO_VIDEO:
-        if delete_demo_content(section, level, country, "video"):
-            await update.message.reply_text("✅ Barcha demo videolar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_DEMO_TEXT:
-        if delete_demo_content(section, level, country, "text"):
-            await update.message.reply_text("✅ Demo text o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_DEMO_PHOTO:
-        if delete_demo_content(section, level, country, "photo"):
-            await update.message.reply_text("✅ Demo rasmlar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_EXPENSE_VIDEO:
-        if delete_expense_content(section, level, country, "video"):
-            await update.message.reply_text("✅ Barcha harajat videolar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_EXPENSE_TEXT:
-        if delete_expense_content(section, level, country, "text"):
-            await update.message.reply_text("✅ Harajat text o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_INCOME_VIDEO:
-        if delete_income_content(section, level, country, "video"):
-            await update.message.reply_text("✅ Barcha daromad videolar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_INCOME_TEXT:
-        if delete_income_content(section, level, country, "text"):
-            await update.message.reply_text("✅ Daromad text o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_FULL_VIDEO:
-        if delete_full_content(section, level, country, "video"):
-            await update.message.reply_text("✅ To'liq videolar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_FULL_TEXT:
-        if delete_full_content(section, level, country, "text"):
-            await update.message.reply_text("✅ To'liq text o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    if text == BTN_DEL_FULL_PHOTO:
-        if delete_full_content(section, level, country, "photo"):
-            await update.message.reply_text("✅ To'liq rasmlar o'chirildi", reply_markup=country_content_kb())
-        else:
-            await update.message.reply_text("❌ Xatolik", reply_markup=country_content_kb())
-        return True
-    
-    return True
-
-
-async def show_course_content_info(update, context, section, level, country):
-    course = get_course(section, level, country)
-    
-    if not course:
-        await update.message.reply_text("❌ Kurs topilmadi", reply_markup=country_content_kb())
-        return
-    
-    demo = course.get("demo", {})
-    full = course.get("full", {})
-    
-    text = f"📚 *{country}*\n\n"
-    text += f"*DEMO kontent:*\n"
-    text += f"🎥 Video: {'✅' if demo.get('video') else '❌'}\n"
-    text += f"📝 Text: {'✅' if demo.get('text') else '❌'}\n"
-    text += f"🖼 Rasmlar: {len(demo.get('photos', []))} ta\n\n"
-    text += f"*TO'LIQ kurs:*\n"
-    text += f"🎥 Videolar: {len(full.get('videos', []))} ta\n"
-    text += f"📝 Text: {'✅' if full.get('text') else '❌'}\n"
-    text += f"🖼 Rasmlar: {len(full.get('photos', []))} ta"
-    
-    await update.message.reply_text(text, reply_markup=country_content_kb(), parse_mode="Markdown")
-
-
-# ============ GROUPS HANDLERS ============
-async def handle_groups_screen(update, context, text):
-    user_id = update.effective_user.id
-    
-    if text == BTN_ADD_GROUP:
-        set_state(user_id, mode="add_group_country")
-        await update.message.reply_text(
-            "➕ *Yangi guruh*\n\nDavlat nomini yozing:",
-            reply_markup=cancel_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-    
-    # Check if user clicked on a country
-    links = get_all_links()
-    if text in links:
-        set_state(user_id, screen="group_edit", edit_country=text)
-        link = links[text]
-        await update.message.reply_text(
-            f"🔗 *{text}*\n\nLink: {link}\n\nYangi linkni yozing yoki '🗑 O'chirish' tugmasini bosing:",
-            reply_markup=ReplyKeyboardMarkup([
-                ["🗑 O'chirish"],
-                [BTN_BACK]
-            ], resize_keyboard=True),
-            parse_mode="Markdown"
-        )
-        set_state(user_id, mode="edit_group_link")
-        return True
-    
-    return True
-
-
-async def show_groups_info(update, context):
-    links = get_all_links()
-    
-    if not links:
-        text = "🔗 *Guruh linklar*\n\nHali guruhlar qo'shilmagan.\n\n➕ Yangi guruh qo'shish tugmasini bosing."
-    else:
-        text = f"🔗 *Mavjud guruhlar:* {len(links)} ta\n\n"
-        for country, link in links.items():
-            text += f"🌍 {country}: {link}\n\n"
-        text += "Davlatni tanlab linkni o'zgartiring yoki yangi qo'shing."
-    
-    await update.message.reply_text(text, reply_markup=groups_kb(), parse_mode="Markdown")
-
-
-async def handle_group_edit_screen(update, context, text):
-    user_id = update.effective_user.id
-    country = get_state(user_id).get("edit_country")
-    
-    if text == "🗑 O'chirish":
-        delete_country_link(country)
-        set_state(user_id, mode="")
-        await update.message.reply_text(f"✅ {country} guruhi o'chirildi")
-        await navigate_to_screen(update, context, "groups")
-        return True
-    
-    return True
-
-
-# ============ ADMINS HANDLERS ============
-async def handle_admins_screen(update, context, text):
-    user_id = update.effective_user.id
-    
-    if text == BTN_ADD_ADMIN:
-        set_state(user_id, mode="add_admin")
-        await update.message.reply_text(
-            "➕ *Admin qo'shish*\n\nUser ID ni yuboring:",
-            reply_markup=cancel_kb(),
-            parse_mode="Markdown"
-        )
-        return True
-    
-    # Check if clicked on existing admin
-    if text.startswith("👤 "):
-        try:
-            aid = int(text.replace("👤 ", "").strip())
-            if aid == SUPER_ADMIN_ID:
-                await update.message.reply_text("⭐️ Super adminni o'chirish mumkin emas")
-                return True
-            
-            remove_admin(aid)
-            await update.message.reply_text(f"✅ Admin o'chirildi: {aid}")
-            await navigate_to_screen(update, context, "admins")
-        except ValueError:
-            pass
-        return True
-    
-    return True
-
-
-async def show_admins_info(update, context):
-    admins = get_all_admins()
-    
-    text = f"👮 *ADMINLAR*\n\nJami: {len(admins)}\n\n"
-    for aid in admins:
-        marker = "⭐️" if aid == SUPER_ADMIN_ID else "👤"
-        text += f"{marker} `{aid}`\n"
-    text += "\nAdminni o'chirish uchun ustiga bosing."
-    
-    await update.message.reply_text(text, reply_markup=admins_kb(), parse_mode="Markdown")
-
-
-# ============ INPUT MODES ============
-async def handle_input_mode(update, context, mode):
-    """Handle text/photo/video input based on current mode"""
-    user_id = update.effective_user.id
-    state = get_state(user_id)
-    
-    message = update.message
-    text = message.text if message.text else ""
-    
-    # ===== Add country =====
-    if mode == "add_country":
-        if not text:
-            return True
-        section = state.get("section")
-        level = state.get("level")
-        course_id = add_country_to_course(section, level, text)
-        set_state(user_id, mode="")
-        await message.reply_text(f"✅ Davlat qo'shildi: {text}")
-        await navigate_to_screen(update, context, "course_countries")
-        return True
-    
-    # ===== Add demo content =====
-    if mode == "add_demo_text" and text:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_demo_content(section, level, country, "text", text)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Demo text qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_demo_video" and message.video:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_demo_content(section, level, country, "video", message.video.file_id, caption=message.caption)
-        course = get_course(section, level, country)
-        total = len(course.get("demo", {}).get("videos", [])) if course else 0
-        set_state(user_id, mode="")
-        await message.reply_text(f"✅ Demo video qo'shildi! (Jami: {total} ta)\n\nYana video yuborishingiz mumkin yoki ortga qaytishingiz mumkin.")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_demo_photo" and message.photo:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_demo_content(section, level, country, "photo", message.photo[-1].file_id, caption=message.caption)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Demo rasm qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    # ===== Add full course content =====
-    if mode == "add_full_text" and text:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_full_content(section, level, country, "text", text)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ To'liq kurs text qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_expense_video" and message.video:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_expense_content(section, level, country, "video", message.video.file_id, caption=message.caption)
-        ex_course = get_course(section, level, country)
-        ex_total = len(ex_course.get("expense", {}).get("videos", [])) if ex_course else 0
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Harajat video qo'shildi! (Jami: " + str(ex_total) + " ta)")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_expense_text" and text:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_expense_content(section, level, country, "text", text)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Harajat text qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_income_video" and message.video:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_income_content(section, level, country, "video", message.video.file_id, caption=message.caption)
-        in_course = get_course(section, level, country)
-        in_total = len(in_course.get("income", {}).get("videos", [])) if in_course else 0
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Daromad video qo'shildi! (Jami: " + str(in_total) + " ta)")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_income_text" and text:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_income_content(section, level, country, "text", text)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ Daromad text qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_full_video" and message.video:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_full_content(section, level, country, "video", message.video.file_id, caption=message.caption)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ To'liq kurs video qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    if mode == "add_full_photo" and message.photo:
-        section, level, country = state.get("section"), state.get("level"), state.get("country")
-        set_full_content(section, level, country, "photo", message.photo[-1].file_id, caption=message.caption)
-        set_state(user_id, mode="")
-        await message.reply_text("✅ To'liq kurs rasm qo'shildi!")
-        await navigate_to_screen(update, context, "course_content")
-        return True
-    
-    # ===== Add group =====
-    if mode == "add_group_country" and text:
-        set_state(user_id, mode="add_group_link", new_country=text)
-        await message.reply_text(f"✅ Davlat: {text}\n\nEndi guruh linkni yuboring:", reply_markup=cancel_kb())
-        return True
-    
-    if mode == "add_group_link" and text:
-        country = state.get("new_country")
-        set_country_link(country, text)
-        set_state(user_id, mode="")
-        await message.reply_text(f"✅ Guruh qo'shildi!\n\n🌍 {country}\n{text}")
-        await navigate_to_screen(update, context, "groups")
-        return True
-    
-    # ===== Edit group link =====
-    if mode == "edit_group_link" and text and text not in [BTN_BACK, "🗑 O'chirish"]:
-        country = state.get("edit_country")
-        set_country_link(country, text)
-        set_state(user_id, mode="")
-        await message.reply_text(f"✅ Link o'zgartirildi!\n\n🌍 {country}\n{text}")
-        await navigate_to_screen(update, context, "groups")
-        return True
-    
-    # ===== Add admin =====
-    if mode == "add_admin" and text:
-        try:
-            new_aid = int(text)
-            if add_admin(new_aid):
-                await message.reply_text(f"✅ Admin qo'shildi: {new_aid}")
+    is_new_user = user_id not in user_db  # check BEFORE register_user marks them as seen
+    register_user(update.effective_user)
+    if user_id not in users:
+        users[user_id] = {}
+
+    # Referral tracking: only reward for genuinely new users, never for repeats
+    if is_new_user and context.args:
+        ref_code = context.args[0]
+        if ref_code.startswith("ref_"):
+            ref_code = ref_code[4:]
+        from referrals import get_user_by_code, register_referral_start
+        referrer_id = get_user_by_code(ref_code)
+        if referrer_id:
+            rewarded = register_referral_start(referrer_id, user_id)
+            if rewarded:
                 try:
+                    from referrals import START_REWARD_SOM
                     await context.bot.send_message(
-                        chat_id=new_aid,
-                        text="✅ Siz admin etib tayinlandingiz!\n\nEndi botda ⚙️ Bot boshqaruvi bolimi orqali tasdiqlangan tolovlarni korishingiz mumkin."
+                        referrer_id,
+                        f"🎉 Referalingiz orqali botga start bosdi!\n\n"
+                        f"💰 Sizga {START_REWARD_SOM:,} so'm qo'shildi.\n"
+                        f"📊 Mablag'ingizni 'Mening profilim' bo'limida ko'ring."
                     )
                 except Exception:
                     pass
-            else:
-                await message.reply_text("❌ Bu user allaqachon admin")
-        except ValueError:
-            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, "admins")
-        return True
-    
-    # ===== Send user message =====
-    if mode == "send_user_id" and text:
-        try:
-            target_id = int(text)
-            set_state(user_id, mode="send_user_msg", target_id=target_id)
-            await message.reply_text(f"💬 User `{target_id}` ga xabar yuboring:", reply_markup=cancel_kb(), parse_mode="Markdown")
-        except ValueError:
-            await message.reply_text("❌ Noto'g'ri ID")
-            set_state(user_id, mode="")
-        return True
-    
-    if mode == "send_user_msg":
-        target_id = state.get("target_id")
-        try:
-            if message.photo:
-                await context.bot.send_photo(target_id, message.photo[-1].file_id, caption=message.caption or "")
-            elif message.video:
-                await context.bot.send_video(target_id, message.video.file_id, caption=message.caption or "")
-            elif text:
-                await context.bot.send_message(target_id, text)
-            else:
-                await message.reply_text("❌ Bo'sh xabar yuborib bo'lmaydi")
-                return True
-            
-            await message.reply_text("✅ Xabar yuborildi!")
-        except Exception as e:
-            await message.reply_text(f"❌ Xato: {e}")
-        
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, "main")
-        return True
-    
-    # ===== Broadcast =====
-    if mode == "broadcast":
-        sent = 0
-        failed = 0
-        for uid in user_db.keys():
-            try:
-                if message.photo:
-                    await context.bot.send_photo(uid, message.photo[-1].file_id, caption=message.caption or "")
-                elif message.video:
-                    await context.bot.send_video(uid, message.video.file_id, caption=message.caption or "")
-                elif text:
-                    await context.bot.send_message(uid, text)
-                sent += 1
-            except Exception:
-                failed += 1
-        
-        await message.reply_text(f"✅ Broadcast yuborildi!\n\n✅ Yuborildi: {sent}\n❌ Xato: {failed}")
-        set_state(user_id, mode="")
-        await navigate_to_screen(update, context, "main")
-        return True
-    
-    if mode == "reorder_country":
-        country_key = state.get("reorder_country_key")
-        country_name = state.get("reorder_country_name")
-        section = state.get("section")
-        level = state.get("level")
-        try:
-            pos = int(text.strip())
-            from courses import reorder_country
-            reorder_country(section, level, country_key, position=pos)
-            set_state(user_id, mode="")
-            await update.message.reply_text(str(country_name) + " " + str(pos) + "-oringa kochdi!", reply_markup=countries_kb(section, level))
-        except ValueError:
-            await update.message.reply_text("Faqat raqam yuboring!")
-        return True
-    
-    if mode == "edit_welcome" and text:
-        from texts import save_custom_welcome
-        ok = save_custom_welcome(text=text, lang="uz")
-        if ok:
-            await update.message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
-        else:
-            await update.message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
-        set_state(user_id, mode="", screen="welcome_menu")
-        return True
-    
-    if mode == "edit_welcome_photo" and message.photo:
-        from texts import save_custom_welcome
-        ok = save_custom_welcome(lang="uz", photo=message.photo[-1].file_id)
-        if ok:
-            await message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
-        else:
-            await message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
-        set_state(user_id, mode="", screen="welcome_menu")
-        return True
-    
-    if mode == "edit_welcome_video" and message.video:
-        from texts import save_custom_welcome
-        ok = save_custom_welcome(lang="uz", video=message.video.file_id)
-        if ok:
-            await message.reply_text("✅ Kirish xabari o'zgartirildi!", reply_markup=welcome_menu_kb())
-        else:
-            await message.reply_text("❌ Xato yuz berdi!", reply_markup=welcome_menu_kb())
-        set_state(user_id, mode="", screen="welcome_menu")
-        return True
-    
-    return True
+    clear(user_id)
+    # Exit admin panel if user is in it (so super admin can use main menu)
+    try:
+        from admin_panel import admin_state
+        if user_id in admin_state:
+            admin_state.pop(user_id, None)
+    except Exception:
+        pass
+    # Ensure user has Uzbek language set
+    if user_id in user_db and user_db[user_id].get("lang") != "uz":
+        user_db[user_id]["lang"] = "uz"
+        from data import save_db, DB_FILE
+        save_db(DB_FILE, user_db)
+    try:
+        from texts import get_welcome_media
+        w_photo, w_video = get_welcome_media(user_id)
+        welcome_text = t(user_id, "welcome")
+        caption_ok = len(welcome_text) <= 1024
 
-
-# ============ ADMIN SEND USER CALLBACK ============
-async def handle_admin_callback(update, context):
-    query = update.callback_query
-    await query.answer()
-    admin_id = query.from_user.id
-    data = query.data
-    if data == "su:cancel":
-        try: await query.message.delete()
-        except: pass
-        return True
-    if data.startswith("su:"):
-        target_id = int(data.split(":")[1])
-        set_state(admin_id, mode="send_user_msg", target_id=target_id)
-        from data import user_db
-        udata = user_db.get(target_id, {})
-        fname = udata.get("first_name") or "User"
-        uname = udata.get("username") or "-"
-        try: await query.message.delete()
-        except: pass
-        await context.bot.send_message(
-            chat_id=query.message.chat.id,
-            text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:",
-            reply_markup=cancel_kb()
+        if w_video:
+            if caption_ok:
+                await update.message.reply_video(
+                    w_video,
+                    caption=welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_video(w_video)
+                await update.message.reply_text(
+                    welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+        elif w_photo:
+            if caption_ok:
+                await update.message.reply_photo(
+                    w_photo,
+                    caption=welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_photo(w_photo)
+                await update.message.reply_text(
+                    welcome_text,
+                    reply_markup=main_menu(user_id),
+                    parse_mode="Markdown"
+                )
+        else:
+            await update.message.reply_text(
+                welcome_text,
+                reply_markup=main_menu(user_id),
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        print(f"Error in /start for user {user_id}: {e}")
+        # Fallback: send without markdown
+        await update.message.reply_text(
+            "Budget Viza botiga xush kelibsiz!",
+            reply_markup=main_menu(user_id)
         )
-        return True
-    if data.startswith("users_page:"):
-        page = int(data.split(":", 1)[1])
-        await show_users(update, context, page=page)
-        return True
-
-    if data.startswith("payout:paid:"):
-        req_id = data.split(":", 2)[2]
-        from referrals import mark_payout_paid
-        ok = mark_payout_paid(req_id)
-        if ok:
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-                await query.message.reply_text(f"✅ `{req_id}` to'landi deb belgilandi.", parse_mode="Markdown")
-            except Exception:
-                pass
-        return True
-    return False
 
 
-# ============ APPROVE/REJECT COMMANDS ============
-async def handle_approve_command(update, context):
-    """Handle /approve_pay_xxx commands"""
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Main text message handler"""
     user_id = update.effective_user.id
-    if not is_super_admin(user_id):
+    text = update.message.text
+    register_user(update.effective_user)
+    if user_id not in users:
+        users[user_id] = {}
+
+    # If user is in admin panel BUT clicks a main menu button, exit admin panel first
+    main_menu_buttons = [
+        t(user_id, "btn_university"),
+        t(user_id, "btn_visa"),
+        t(user_id, "btn_work"),
+        t(user_id, "btn_combo"),
+        t(user_id, "btn_consult"),
+        t(user_id, "btn_my_courses"),
+        t(user_id, "btn_about"),
+        t(user_id, "btn_profile"),
+        t(user_id, "btn_bot_panel"),
+    ]
+    if is_in_admin_panel(user_id) and text in main_menu_buttons and text != t(user_id, "btn_bot_panel"):
+        try:
+            from admin_panel import admin_state
+            admin_state.pop(user_id, None)
+        except Exception:
+            pass
+
+    # Admin panel - if user is in admin panel, route to it
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
+
+    # Language selection
+    if step(user_id) == "lang":
+        if "zbek" in text or "🇺🇿" in text:
+            user_db[user_id]["lang"] = "uz"
+        elif "English" in text or "🇬🇧" in text:
+            user_db[user_id]["lang"] = "en"
+        from data import save_db, DB_FILE
+        save_db(DB_FILE, user_db)
+        clear(user_id)
+        await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+        return
+
+    # Language change button
+    if text == t(user_id, "btn_lang") or "Til / Language" in text:
+        clear(user_id)
+        users[user_id]["step"] = "lang"
+        await update.message.reply_text(t(user_id, "welcome"), reply_markup=language_keyboard(), parse_mode="Markdown")
+        return
+
+    # Back/Main buttons
+    if is_back(text, user_id):
+        clear(user_id)
+        await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+        return
+
+    # About
+    if text == t(user_id, "btn_about"):
+        await update.message.reply_text(t(user_id, "about"), reply_markup=back_menu(user_id), parse_mode="Markdown")
+        return
+
+    # My profile / referral
+    if text == t(user_id, "btn_profile"):
+        await show_profile(update, context)
+        return
+
+    # Card input flow (for referral payouts)
+    if step(user_id) == "card_number":
+        digits = text.strip().replace(" ", "")
+        if not digits.isdigit() or len(digits) != 16:
+            await update.message.reply_text(t(user_id, "invalid_card_number"))
+            return
+        users[user_id]["card_number"] = digits
+        users[user_id]["step"] = "card_holder"
+        await update.message.reply_text(t(user_id, "ask_card_holder"), reply_markup=back_menu(user_id))
+        return
+
+    if step(user_id) == "card_holder":
+        from referrals import set_card
+        card_number = users[user_id].get("card_number", "")
+        set_card(user_id, card_number, text.strip())
+        clear(user_id)
+        await update.message.reply_text(
+            t(user_id, "card_saved", card_number=card_number, card_holder=text.strip()),
+            reply_markup=main_menu(user_id)
+        )
+        return
+
+    # Bot boshqaruvi
+    if text == t(user_id, "btn_bot_panel"):
+        from admins_db import is_super_admin, is_admin
+        if is_super_admin(user_id):
+            await open_admin_panel(update, context)
+        elif is_admin(user_id):
+            from admin_panel import open_limited_admin_panel
+            await open_limited_admin_panel(update, context)
+        return
+
+    # My courses
+    if text == t(user_id, "btn_my_courses"):
+        await show_my_courses(update, context)
+        return
+
+    # Universitet+Viza combo button
+    if text == t(user_id, "btn_combo"):
+        await start_combo_purchase(update, context)
+        return
+
+    # Consultation button
+    if text == t(user_id, "btn_consult"):
+        await start_consultation(update, context)
+        return
+
+    # Course sections (Universitet, Viza, Ishga topshirish)
+    if text == t(user_id, "btn_university"):
+        await show_course_levels(update, context, "universitet")
+        return
+
+    if text == t(user_id, "btn_visa"):
+        await show_course_levels(update, context, "viza")
+        return
+
+    if text == t(user_id, "btn_work"):
+        await show_course_levels(update, context, "ish")
+        return
+
+    # Course navigation handled by inline callbacks below
+
+    # Payment screenshot handling
+    if step(user_id) == "payment_screenshot":
+        await update.message.reply_text(t(user_id, "invalid_input"))
+        return
+
+    # Consultation flow
+    if step(user_id) == "consult_date":
+        all_dates = users[user_id].get("dates_uz", []) + users[user_id].get("dates_en", [])
+        if text not in all_dates:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        users[user_id]["date"] = text
+        users[user_id]["step"] = "consult_name"
+        await update.message.reply_text(t(user_id, "enter_name"), reply_markup=back_menu(user_id))
+        return
+
+    if step(user_id) == "consult_name":
+        if len(text.strip()) < 2:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        users[user_id]["name"] = text
+        users[user_id]["step"] = "consult_phone"
+        await update.message.reply_text(t(user_id, "send_phone"), reply_markup=phone_keyboard(user_id))
+        return
+
+    if step(user_id) == "consult_slot":
+        available = get_available_slots(users[user_id].get("date", ""))
+        if text not in available:
+            await update.message.reply_text(t(user_id, "invalid_input"))
+            return
+        users[user_id]["slot"] = text
+        
+        # Check if free consultation available
+        if can_use_free_consult(user_id):
+            # Free consultation - skip payment
+            await handle_free_consultation(update, context)
+        else:
+            # Paid consultation
+            users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "consult"
+            await update.message.reply_text(
+                t(user_id, "payment_consult", price=CONSULT_PRICE, card=CARD, methods=PAYMENT_METHODS),
+                reply_markup=back_menu(user_id),
+                parse_mode="Markdown"
+            )
+        return
+
+
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user's referral profile: link, stats, balance, card management"""
+    user_id = update.effective_user.id
+    from referrals import get_or_create_referral_code, get_referral_stats
+
+    code = get_or_create_referral_code(user_id)
+    stats = get_referral_stats(user_id)
+    bot_username = (await context.bot.get_me()).username
+    ref_link = f"https://t.me/{bot_username}?start={code}"
+
+    await update.message.reply_text(
+        t(user_id, "profile_menu",
+          ref_link=ref_link,
+          starts=stats["starts"],
+          purchases=stats["purchases"],
+          balance=stats["balance_som"]),
+        reply_markup=keyboards_profile_kb(user_id, has_card=bool(stats["card_number"])),
+        parse_mode="Markdown"
+    )
+
+
+def keyboards_profile_kb(user_id, has_card):
+    from keyboards import profile_keyboard
+    return profile_keyboard(user_id, has_card)
+
+
+async def show_my_courses(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user's purchased courses - SEND FULL COURSE MATERIALS DIRECTLY"""
+    user_id = update.effective_user.id
+    
+    # Get user's courses
+    courses = get_user_courses(user_id)
+    
+    if not courses:
+        await update.message.reply_text(
+            t(user_id, "my_courses_empty"),
+            reply_markup=back_menu(user_id),
+            parse_mode="Markdown"
+        )
         return
     
-    command = update.message.text
-    pay_id = command.replace("/approve_", "")
+    # SEND ALL COURSES - FULL CONTENT DIRECTLY
+    from courses import get_course_by_id
+    
+    for course in courses:
+        course_id = course.get("id", "")
+        expires = course.get("expires", "")
+        
+        try:
+            course_info = get_course_by_id(course_id)
+            if not course_info:
+                await update.message.reply_text(f"❌ Kurs topilmadi: {course_id}")
+                continue
+            
+            course_data = course_info["data"]
+            country = course_info["country"]
+            
+            # Send course header
+            msg = f"📚 *{course_id}*\n⏱ Amal qilish: {expires}"
+            await update.message.reply_text(msg, parse_mode="Markdown")
+            
+            # SEND FULL COURSE MATERIALS
+            full = course_data.get("full", {})
+            full_text = full.get("text")
+            full_videos = full.get("videos", [])
+            full_photos = full.get("photos", [])
+            
+            # Send TEXT
+            if full_text:
+                await update.message.reply_text(full_text, parse_mode="Markdown")
+            
+            # Send VIDEOS
+            for vid in full_videos:
+                try:
+                    v_id, v_cap = _media_parts(vid)
+                    await context.bot.send_video(user_id, v_id, caption=v_cap, protect_content=True)
+                except Exception as e:
+                    print(f"Video error: {e}")
+            
+            # Send PHOTOS
+            for ph in full_photos:
+                try:
+                    p_id, p_cap = _media_parts(ph)
+                    await context.bot.send_photo(user_id, p_id, caption=p_cap, protect_content=True)
+                except Exception as e:
+                    print(f"Photo error: {e}")
+            
+            # Send GROUP LINK
+            link = get_country_link(country)
+            if link:
+                await update.message.reply_text(f"👥 *Gurux'ga qo'shiling:* {link}", parse_mode="Markdown")
+        
+        except Exception as e:
+            print(f"Course error: {e}")
+            await update.message.reply_text(f"❌ Xato: {course_id}")
+            continue
+    
+    # Final menu
+    await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+
+
+async def start_combo_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start Universitet+Viza combo purchase flow - choose level first"""
+    user_id = update.effective_user.id
+    clear(user_id)
+
+    levels = get_levels("universitet")
+    if not levels:
+        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=main_menu(user_id))
+        return
+
+    buttons = []
+    for idx, (level_key, level) in enumerate(levels.items(), start=1):
+        buttons.append([InlineKeyboardButton(
+            f"{idx}) {level['name']}",
+            callback_data=f"combo:level:{level_key}"
+        )])
+    buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+
+    await update.message.reply_text(
+        "🎓 *Universitet+Viza combo*\n\nDarajani tanlang:",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown"
+    )
+
+
+async def start_consultation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start consultation booking"""
+    user_id = update.effective_user.id
+    
+    # Check if free consultation available
+    if can_use_free_consult(user_id):
+        dates_uz, dates_en = generate_dates()
+        dates = dates_uz if get_lang(user_id) == "uz" else dates_en
+        keyboard = [[d] for d in dates]
+        keyboard.append([t(user_id, "back"), t(user_id, "main")])
+        
+        await update.message.reply_text(
+            t(user_id, "payment_consult_free"),
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        clear(user_id)
+        users[user_id]["step"] = "consult_date"
+        users[user_id]["dates_uz"] = dates_uz
+        users[user_id]["dates_en"] = dates_en
+        users[user_id]["free_consult"] = True
+    else:
+        # Paid consultation
+        dates_uz, dates_en = generate_dates()
+        dates = dates_uz if get_lang(user_id) == "uz" else dates_en
+        keyboard = [[d] for d in dates]
+        keyboard.append([t(user_id, "back"), t(user_id, "main")])
+        
+        await update.message.reply_text(
+            t(user_id, "choose_date"),
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        clear(user_id)
+        users[user_id]["step"] = "consult_date"
+        users[user_id]["dates_uz"] = dates_uz
+        users[user_id]["dates_en"] = dates_en
+        users[user_id]["free_consult"] = False
+
+
+async def handle_free_consultation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle free consultation booking"""
+    user_id = update.effective_user.id
+    name = users[user_id].get("name", "-")
+    phone = users[user_id].get("phone", "-")
+    date = users[user_id].get("date", "-")
+    slot = users[user_id].get("slot", "-")
+    
+    # Mark as used
+    use_free_consult(user_id)
+    
+    # Book the slot
+    if date not in booked_slots:
+        booked_slots[date] = set()
+    booked_slots[date].add(slot)
+    save_booking(user_id, {"name": name, "phone": phone, "date": date, "slot": slot})
+    
+    # Notify admin
+    username = update.effective_user.username or "-"
+    first_name = update.effective_user.first_name or "User"
+    
+    admin_msg = f"🎁 *TEKIN konsultatsiya*\n\n👤 {first_name} (@{username})\n📱 {phone}\n📅 {date}\n⏰ {slot}\n🆔 {user_id}\n\n✅ Tasdiqlangan (TEKIN)"
+    
+    await context.bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+    
+    # Confirm to user
+    await update.message.reply_text(
+        t(user_id, "consult_approved", date=date, slot=slot),
+        reply_markup=back_menu(user_id),
+        parse_mode="Markdown"
+    )
+    
+    # Schedule reminder
+    asyncio.create_task(schedule_reminder(context, user_id, date, slot))
+    
+    clear(user_id)
+
+
+async def show_course_levels(update: Update, context: ContextTypes.DEFAULT_TYPE, section: str):
+    """Show course levels for a section as inline keyboard"""
+    user_id = update.effective_user.id
+    clear(user_id)
+    
+    levels = get_levels(section)
+    if not levels:
+        await update.message.reply_text(t(user_id, "video_coming"), reply_markup=main_menu(user_id))
+        return
+    
+    # Build inline keyboard with levels (numbered)
+    buttons = []
+    for idx, (level_key, level) in enumerate(levels.items(), start=1):
+        buttons.append([InlineKeyboardButton(
+            f"{idx}) {level['name']}",
+            callback_data=f"nav:level:{section}:{level_key}"
+        )])
+    buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+    
+    await update.message.reply_text(
+        t(user_id, "choose_level"),
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+
+async def show_course_countries(update_or_query, context: ContextTypes.DEFAULT_TYPE, section: str, level: str):
+    """Show countries for a course level as inline keyboard"""
+    # Support both Update and CallbackQuery
+    if hasattr(update_or_query, 'callback_query') and update_or_query.callback_query is not None:
+        query = update_or_query.callback_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+    elif hasattr(update_or_query, 'from_user') and hasattr(update_or_query, 'edit_message_text'):
+        query = update_or_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+    elif hasattr(update_or_query, 'effective_user') and update_or_query.effective_user is not None:
+        user_id = update_or_query.effective_user.id
+        send = lambda text, **kwargs: update_or_query.message.reply_text(text, **kwargs)
+    else:
+        query = update_or_query
+        user_id = query.from_user.id
+        send = lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+    
+    countries = get_countries(section, level)
+    if not countries:
+        await send(t(user_id, "video_coming"))
+        return
+    
+    # Build inline keyboard with countries - 2 per row
+    country_items = list(countries.items())
+    btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"nav:country:{section}:{level}:{country_key}") for country_key, country in country_items]
+    buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
+    buttons.append([
+        InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
+        InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+    ])
+    
+    await send(
+        t(user_id, "choose_country"),
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+
+async def show_course_content(query_or_update, context: ContextTypes.DEFAULT_TYPE, section: str, level: str, country: str):
+    """Show course content (demo or full based on access) - inline based"""
+    # Get user_id and chat_id
+    if hasattr(query_or_update, 'callback_query') and query_or_update.callback_query:
+        query = query_or_update.callback_query
+        user_id = query.from_user.id
+        chat_id = query.message.chat.id
+    elif hasattr(query_or_update, 'from_user'):
+        query = query_or_update
+        user_id = query.from_user.id
+        chat_id = query.message.chat.id
+    else:
+        user_id = query_or_update.effective_user.id
+        chat_id = query_or_update.effective_chat.id
+    
+    course = get_course(section, level, country)
+    if not course:
+        await context.bot.send_message(chat_id, t(user_id, "video_coming"))
+        return
+    
+    course_id = course.get("id")
+    has_access = has_course_access(user_id, course_id)
+    
+    if has_access:
+        await send_full_course_inline(context, chat_id, user_id, course, course_id, section, level)
+    else:
+        await send_demo_course_inline(context, chat_id, user_id, course, course_id, section, level)
+
+
+async def send_demo_course_inline(context, chat_id, user_id, course, course_id, section, level):
+    """Show expense/income/buy buttons - content is shown only when a button is pressed"""
+    buttons = [
+        [
+            InlineKeyboardButton("💰 Harajat", callback_data="info:expense:" + course_id),
+            InlineKeyboardButton("💵 Daromad", callback_data="info:income:" + course_id)
+        ],
+        [InlineKeyboardButton("💳 Kursni sotib olish - $" + str(COURSE_PRICE), callback_data="buy:course:" + course_id)],
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data="nav:back_to_countries:" + section + ":" + level),
+            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+        ]
+    ]
+    
+    await context.bot.send_message(
+        chat_id,
+        t(user_id, "course_locked", price=COURSE_PRICE),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown"
+    )
+    
+    clear(user_id)
+
+
+async def send_full_course_inline(context, chat_id, user_id, course, course_id, section, level):
+    """Send full course content with inline keyboard"""
+    full = course.get("full", {})
+    
+    # Send full content
+    full_videos = full.get("videos", [])
+    full_text = full.get("text")
+    full_photos = full.get("photos", [])
+    
+    if full_text:
+        await context.bot.send_message(chat_id, full_text)
+    
+    for video in full_videos:
+        fv_id, fv_cap = _media_parts(video)
+        await context.bot.send_video(chat_id, fv_id, caption=fv_cap, protect_content=True)
+    
+    for photo in full_photos:
+        fp_id, fp_cap = _media_parts(photo)
+        await context.bot.send_photo(chat_id, fp_id, caption=fp_cap, protect_content=True)
+    
+    # Show back buttons
+    buttons = [
+        [
+            InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_countries:{section}:{level}"),
+            InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+        ]
+    ]
+    
+    await context.bot.send_message(
+        chat_id,
+        "✅ To'liq kurs",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+    
+    clear(user_id)
+
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline keyboard callbacks"""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    data = query.data
+
+    # ============ PROFILE / REFERRAL CALLBACKS ============
+    if data.startswith("profile:"):
+        action = data.split(":", 1)[1]
+
+        if action == "add_card":
+            users.setdefault(user_id, {})
+            users[user_id]["step"] = "card_number"
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "ask_card_number"),
+                reply_markup=back_menu(user_id)
+            )
+            return
+
+        if action == "withdraw":
+            from referrals import get_referral_stats, request_payout, MIN_STARTS_TO_WITHDRAW
+            stats = get_referral_stats(user_id)
+            if not stats or not stats.get("card_number"):
+                await context.bot.send_message(query.message.chat.id, t(user_id, "withdraw_no_card"))
+                return
+            if stats["starts"] < MIN_STARTS_TO_WITHDRAW:
+                await context.bot.send_message(
+                    query.message.chat.id,
+                    t(user_id, "withdraw_not_enough_starts", min_starts=MIN_STARTS_TO_WITHDRAW, starts=stats["starts"])
+                )
+                return
+            if stats["balance_som"] <= 0:
+                await context.bot.send_message(query.message.chat.id, t(user_id, "withdraw_no_balance"))
+                return
+
+            req = request_payout(user_id)
+            if req:
+                await context.bot.send_message(
+                    query.message.chat.id,
+                    t(user_id, "withdraw_success", amount=req["amount_som"], card_number=req["card_number"])
+                )
+                # Notify admin
+                try:
+                    await context.bot.send_message(
+                        SUPER_ADMIN_ID,
+                        f"💸 *Yangi pul yechish so'rovi*\n\n"
+                        f"👤 User: `{user_id}`\n"
+                        f"💰 Miqdor: {req['amount_som']:,} so'm\n"
+                        f"💳 Karta: {req['card_number']}\n"
+                        f"👤 Karta egasi: {req['card_holder']}",
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
+            return
+    
+    # ============ NAVIGATION CALLBACKS ============
+    if data.startswith("nav:"):
+        parts = data.split(":")
+        action = parts[1] if len(parts) > 1 else ""
+        
+        if action == "home":
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "main_menu"),
+                reply_markup=main_menu(user_id)
+            )
+            return
+        
+        if action == "level":
+            section = parts[2]
+            level_key = parts[3]
+            users[user_id]["section"] = section
+            users[user_id]["level"] = level_key
+            await show_course_countries(query, context, section, level_key)
+            return
+        
+        if action == "country":
+            section = parts[2]
+            level = parts[3]
+            country = parts[4]
+            users[user_id]["section"] = section
+            users[user_id]["level"] = level
+            users[user_id]["country"] = country
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await show_course_content(query, context, section, level, country)
+            return
+        
+        if action == "back_to_levels":
+            section = parts[2]
+            levels = get_levels(section)
+            buttons = []
+            for idx, (level_key, level) in enumerate(levels.items(), start=1):
+                buttons.append([InlineKeyboardButton(
+                    f"{idx}) {level['name']}",
+                    callback_data=f"nav:level:{section}:{level_key}"
+                )])
+            buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+            await query.edit_message_text(
+                t(user_id, "choose_level"),
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
+        
+        if action == "back_to_countries":
+            section = parts[2]
+            level = parts[3]
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            countries = get_countries(section, level)
+            buttons = []
+            country_items = list(countries.items())
+            btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"nav:country:{section}:{level}:{country_key}") for country_key, country in country_items]
+            buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
+            buttons.append([
+                InlineKeyboardButton("🔙 Orqaga", callback_data=f"nav:back_to_levels:{section}"),
+                InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+            ])
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "choose_country"),
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
+        
+        return
+    
+    # ============ COMBO (Universitet+Viza) CALLBACKS ============
+    if data.startswith("combo:"):
+        parts = data.split(":")
+        action = parts[1] if len(parts) > 1 else ""
+        
+        if action == "level":
+            level_key = parts[2]
+            users[user_id]["combo_level"] = level_key
+            countries = get_countries("universitet", level_key)
+            if not countries:
+                await query.answer(t(user_id, "video_coming"), show_alert=True)
+                return
+            country_items = list(countries.items())
+            btns_flat = [InlineKeyboardButton(country["name"], callback_data=f"combo:country:{level_key}:{country_key}") for country_key, country in country_items]
+            buttons = [btns_flat[i:i+2] for i in range(0, len(btns_flat), 2)]
+            buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")])
+            try:
+                await query.edit_message_text(
+                    t(user_id, "choose_country"),
+                    reply_markup=InlineKeyboardMarkup(buttons)
+                )
+            except Exception:
+                pass
+            return
+        
+        if action == "country":
+            level_key = parts[2]
+            country_key = parts[3]
+            uni_id, viza_ids = get_combo_course_ids(level_key, country_key)
+            if not uni_id:
+                await query.answer(t(user_id, "video_coming"), show_alert=True)
+                return
+            
+            clear(user_id)
+            users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "combo"
+            users[user_id]["combo_level"] = level_key
+            users[user_id]["combo_country"] = country_key
+            
+            levels = get_levels("universitet")
+            level_name = levels.get(level_key, {}).get("name", level_key)
+            
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await context.bot.send_message(
+                query.message.chat.id,
+                t(user_id, "payment_combo", country=country_key, level_name=level_name, price=COMBO_PRICE, card=CARD, methods=PAYMENT_METHODS),
+                reply_markup=back_menu(user_id),
+                parse_mode="Markdown"
+            )
+            return
+        
+        return
+    
+    # ============ PAYMENT CONFIRMATION =============
+    if data.startswith("paid:confirm:"):
+        pay_id = data.split(":")[2]
+        payment = get_payment(pay_id)
+        if not payment:
+            await query.message.reply_text("❌ To'lov topilmadi.")
+            return
+        
+        try:
+            await query.edit_message_text(
+                "🕐 *To'lovingiz tekshirilmoqda...*\n\nIltimos kuting, admin tasdiqlagandan keyin sizga kurs yuboriladi.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        
+        try:
+            p_first = payment.get("first_name") or "-"
+            p_user = payment.get("username") or "-"
+            p_uid = payment.get("user_id") or "-"
+            p_amount = payment.get("amount") or "-"
+            p_type = payment.get("type") or "-"
+            p_course = payment.get("course_id") or ""
+            
+            from datetime import datetime as _dt
+            pay_time = _dt.now().strftime("%d.%m.%Y %H:%M")
+            user_info = f"👤 Foydalanuvchi: {p_first}\n"
+            user_info += f"🆔 Username: @{p_user}\n"
+            user_info += f"🔢 ID: {p_uid}\n"
+            user_info += f"💰 Summa: ${p_amount}\n"
+            user_info += f"📦 Turi: {p_type}\n"
+            if p_course:
+                user_info += f"📚 Kurs: {p_course}\n"
+            user_info += f"🕐 Vaqt: {pay_time}\n"
+            user_info += f"🧾 To'lov ID: {pay_id}"
+            
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"admin:approve:{pay_id}"),
+                InlineKeyboardButton("❌ Rad etish", callback_data=f"admin:reject:{pay_id}")
+            ]])
+            
+            screenshot_id = payment.get("screenshot") or payment.get("screenshot_id")
+            sent_ok = False
+            if screenshot_id:
+                try:
+                    await context.bot.send_photo(
+                        SUPER_ADMIN_ID,
+                        screenshot_id,
+                        caption=user_info,
+                        reply_markup=keyboard
+                    )
+                    sent_ok = True
+                except Exception as send_err:
+                    print(f"send_photo failed: {send_err}")
+            
+            # Fallback: send as plain text if photo failed or no screenshot
+            if not sent_ok:
+                await context.bot.send_message(
+                    SUPER_ADMIN_ID,
+                    user_info + ("\n\n⚠️ Skrinshot yuborib bo'lmadi" if screenshot_id else "\n\n⚠️ Skrinshot topilmadi"),
+                    reply_markup=keyboard
+                )
+        except Exception as e:
+            print(f"Admin notification error: {e}")
+            try:
+                await context.bot.send_message(SUPER_ADMIN_ID, f"⚠️ Yangi to'lov keldi! Pay ID: {pay_id}\nXatolik: {e}")
+            except Exception:
+                pass
+        return
+    
+    # ============ ADMIN APPROVE/REJECT ============
+    if data.startswith("admin:approve:") or data.startswith("admin:reject:"):
+        if user_id != SUPER_ADMIN_ID:
+            await query.answer("❌ Faqat admin uchun!", show_alert=True)
+            return
+        
+        action = data.split(":")[1]
+        pay_id = data.split(":")[2]
+        
+        if action == "approve":
+            try:
+                success = await handle_admin_approve_internal(context, pay_id)
+            except Exception as e:
+                print(f"approve_internal exception: {e}")
+                success = False
+            if success:
+                try:
+                    new_cap = (query.message.caption or "") + "\n\n✅ TASDIQLANDI"
+                    await query.edit_message_caption(caption=new_cap)
+                except Exception as e1:
+                    print(f"edit_caption failed: {e1}")
+                    try:
+                        await context.bot.send_message(SUPER_ADMIN_ID, f"✅ To'lov tasdiqlandi! Pay ID: {pay_id}")
+                    except Exception:
+                        pass
+                try:
+                    await query.answer("✅ Tasdiqlandi", show_alert=False)
+                except Exception:
+                    pass
+                # Ask super admin whether to notify other admins
+                other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+                if other_admins:
+                    try:
+                        payment = get_payment(pay_id)
+                        uname = payment.get("username") or "-"
+                        fname = payment.get("first_name") or "User"
+                        amount = payment.get("amount") or "?"
+                        ptype = payment.get("type") or ""
+                        course_id = payment.get("course_id") or ""
+                        parts = course_id.split("_")
+                        if ptype == "course" and len(parts) >= 3:
+                            ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
+                        elif ptype == "combo":
+                            ptype_text = "Universitet+Viza combo"
+                        else:
+                            ptype_text = ptype
+                        notify_text = (
+                            "✅ To'lov tasdiqlandi!\n\n"
+                            "👤 " + fname + " (@" + uname + ")\n"
+                            "💰 $" + str(amount) + "\n"
+                            "📦 " + ptype_text + "\n\n"
+                            "Bu to'lovni boshqa adminlarga yuborasizmi?"
+                        )
+                        kb = InlineKeyboardMarkup([[
+                            InlineKeyboardButton("📤 Adminlarga yuborish", callback_data="notify_admins:" + pay_id),
+                            InlineKeyboardButton("➡️ Yubormaslik", callback_data="notify_admins:skip")
+                        ]])
+                        await context.bot.send_message(SUPER_ADMIN_ID, notify_text, reply_markup=kb)
+                    except Exception as e:
+                        print(f"notify prompt error: {e}")
+            else:
+                try:
+                    await query.answer("❌ Xato yuz berdi", show_alert=True)
+                except Exception:
+                    pass
+                try:
+                    await context.bot.send_message(SUPER_ADMIN_ID, f"❌ Tasdiqlashda xato! Pay ID: {pay_id}")
+                except Exception:
+                    pass
+        else:
+            try:
+                success = await handle_admin_reject_internal(context, pay_id)
+            except Exception as e:
+                print(f"reject_internal exception: {e}")
+                success = False
+            if success:
+                try:
+                    new_cap = (query.message.caption or "") + "\n\n❌ RAD ETILDI"
+                    await query.edit_message_caption(caption=new_cap)
+                except Exception as e1:
+                    print(f"edit_caption failed: {e1}")
+                try:
+                    await query.answer("❌ Rad etildi", show_alert=False)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await query.answer("❌ Xato yuz berdi", show_alert=True)
+                except Exception:
+                    pass
+                return
+    
+    if data.startswith("notify_admins:"):
+        if user_id != SUPER_ADMIN_ID:
+            await query.answer("Faqat bosh admin!", show_alert=True)
+            return
+        pay_id_or_skip = data.split(":")[1]
+        await query.answer()
+        if pay_id_or_skip == "skip":
+            try:
+                await query.edit_message_text("➡️ Adminlarga yuborilmadi.")
+            except Exception:
+                pass
+            return
+        # Send payment info to all other admins
+        pay_id = pay_id_or_skip
+        payment = get_payment(pay_id)
+        if not payment:
+            await query.edit_message_text("❌ To'lov topilmadi")
+            return
+        uname = payment.get("username") or "-"
+        fname = payment.get("first_name") or "User"
+        uid = payment.get("user_id")
+        amount = payment.get("amount") or "?"
+        date = payment.get("date") or "-"
+        ptype = payment.get("type") or ""
+        course_id = payment.get("course_id") or ""
+        parts = course_id.split("_")
+        if ptype == "course" and len(parts) >= 3:
+            ptype_text = parts[0].capitalize() + " - " + parts[1].capitalize() + " - " + "_".join(parts[2:])
+        elif ptype == "combo":
+            ptype_text = "Universitet+Viza combo"
+        else:
+            ptype_text = ptype
+        # Faqat kurs ma'lumotlari — skrinshot va profil YO'Q
+        msg = (
+            "✅ Yangi to'lov tasdiqlandi!\n\n"
+            "📦 " + ptype_text + "\n"
+            "💰 $" + str(amount) + "\n"
+            "📅 " + str(date)
+        )
+        other_admins = [a for a in get_all_admins() if a != SUPER_ADMIN_ID]
+        sent = 0
+        for admin_id in other_admins:
+            try:
+                await context.bot.send_message(chat_id=admin_id, text=msg)
+                sent += 1
+            except Exception as e:
+                print(f"Failed to notify admin {admin_id}: {e}")
+        try:
+            await query.edit_message_text("📤 " + str(sent) + " ta adminga yuborildi!")
+        except Exception:
+            pass
+        return
+
+    # ============ FREE INFO: Harajat / Daromad ============
+    if data.startswith("info:"):
+        parts2 = data.split(":")
+        info_type = parts2[1]
+        info_course_id = parts2[2] if len(parts2) > 2 else None
+        from courses import get_course_by_id
+        info_course = get_course_by_id(info_course_id)
+        if not info_course:
+            await query.answer("❌ Topilmadi", show_alert=True)
+            return
+        info_data = info_course["data"]
+        content = info_data.get(info_type, {})
+        i_videos = content.get("videos", [])
+        i_text = content.get("text")
+        i_label = "💰 Harajat" if info_type == "expense" else "💵 Daromad"
+
+        if not i_videos and not i_text:
+            await query.answer(i_label + " uchun hali kontent qoshilmagan", show_alert=True)
+            return
+
+        await query.answer()
+        i_chat_id = query.message.chat.id
+
+        if i_text:
+            await context.bot.send_message(i_chat_id, i_label + "\n\n" + i_text, parse_mode="Markdown")
+
+        for i_idx, i_v in enumerate(i_videos):
+            iv_id, iv_cap = _media_parts(i_v)
+            i_caption = iv_cap if iv_cap else (i_label if i_idx == 0 and not i_text else None)
+            await context.bot.send_video(i_chat_id, iv_id, caption=i_caption, protect_content=True)
+        return
+
+    if data.startswith("su:") or data.startswith("payout:") or data.startswith("users_page:"):
+        from admin_panel import handle_admin_callback
+        await handle_admin_callback(update, context)
+        return
+
+    if data.startswith("buy:"):
+        parts = data.split(":")
+        payment_type = parts[1]
+        
+        if payment_type == "course":
+            course_id = parts[2] if len(parts) > 2 else None
+            if not course_id:
+                return
+            
+            clear(user_id)
+            users[user_id]["step"] = "payment_screenshot"
+            users[user_id]["payment_type"] = "course"
+            users[user_id]["course_id"] = course_id
+            
+            # Build payment info message
+            payment_text = (
+                f"💳 *To'lov ma'lumotlari*\n\n"
+                f"📋 *Karta raqami:* `{CARD}`\n"
+                f"👤 *Egasi:* Abrorbek M.\n"
+                f"💰 *Summa:* ${COURSE_PRICE}\n\n"
+                f"✅ *To'lov usullari:*\n"
+                f"• 💳 Click\n"
+                f"• 💳 Payme\n"
+                f"• 💳 Uzumbank\n"
+                f"• 💳 Alifmobi\n"
+                f"• 💳 Paynet\n"
+                f"• 💳 Hazna\n"
+                f"• 💳 Zumrad\n\n"
+                f"📸 To'lov qilgach, chek yoki skrinshotni shu yerga yuboring."
+            )
+            
+            await query.message.reply_text(
+                payment_text,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")
+                ]]),
+                parse_mode="Markdown"
+            )
+    
+    elif data == "course:back":
+        await query.message.delete()
+        await context.bot.send_message(
+            user_id,
+            t(user_id, "main_menu"),
+            reply_markup=main_menu(user_id)
+        )
+
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle document (PDF) uploads - treat as payment screenshot"""
+    user_id = update.effective_user.id
+    register_user(update.effective_user)
+    
+    if step(user_id) == "payment_screenshot":
+        payment_type = users[user_id].get("payment_type")
+        course_id = users[user_id].get("course_id")
+        
+        username = update.effective_user.username or "-"
+        first_name = update.effective_user.first_name or "User"
+        doc_id = update.message.document.file_id
+        
+        if payment_type == "course":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="course",
+                amount=COURSE_PRICE,
+                course_id=course_id,
+                screenshot_id=doc_id,
+                username=username,
+                first_name=first_name
+            )
+        elif payment_type == "combo":
+            combo_level = users[user_id].get("combo_level")
+            combo_country = users[user_id].get("combo_country")
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="combo",
+                amount=COMBO_PRICE,
+                course_id=f"{combo_level}:{combo_country}",
+                screenshot_id=doc_id,
+                username=username,
+                first_name=first_name
+            )
+        else:
+            return
+        
+        users[user_id]["pending_pay_id"] = pay_id
+        users[user_id]["step"] = "payment_confirm"
+        
+        await update.message.reply_text(
+            "📋 *Chek qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing 👇",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📤 To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
+                [InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]
+            ]),
+            parse_mode="Markdown"
+        )
+
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle photo uploads (payment screenshots)"""
+    user_id = update.effective_user.id
+    register_user(update.effective_user)
+    
+    # Admin panel photo inputs
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
+    
+    # Payment screenshot
+    if step(user_id) == "payment_screenshot":
+        payment_type = users[user_id].get("payment_type")
+        course_id = users[user_id].get("course_id")
+        
+        username = update.effective_user.username or "-"
+        first_name = update.effective_user.first_name or "User"
+        screenshot_id = update.message.photo[-1].file_id
+        
+        # Create payment record (pending)
+        if payment_type == "course":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="course",
+                amount=COURSE_PRICE,
+                course_id=course_id,
+                screenshot_id=screenshot_id,
+                username=username,
+                first_name=first_name
+            )
+        elif payment_type == "combo":
+            combo_level = users[user_id].get("combo_level")
+            combo_country = users[user_id].get("combo_country")
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="combo",
+                amount=COMBO_PRICE,
+                course_id=f"{combo_level}:{combo_country}",
+                screenshot_id=screenshot_id,
+                username=username,
+                first_name=first_name
+            )
+        elif payment_type == "consult":
+            pay_id = create_payment(
+                user_id=user_id,
+                payment_type="consult",
+                amount=CONSULT_PRICE,
+                screenshot_id=screenshot_id,
+                username=username,
+                first_name=first_name
+            )
+        else:
+            return
+        
+        # Save pay_id in user state for "To'lov qildim" button
+        users[user_id]["pending_pay_id"] = pay_id
+        users[user_id]["step"] = "payment_confirm"
+        
+        # Show "To'lov qildim" inline button
+        await update.message.reply_text(
+            "📸 *Skrinshot qabul qilindi!*\n\nIltimos, to'lovni yakunlash uchun pastdagi tugmani bosing 👇",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📤 To'lov qildim", callback_data=f"paid:confirm:{pay_id}")],
+                [InlineKeyboardButton("🏠 Asosiy menyu", callback_data="nav:home")]
+            ]),
+            parse_mode="Markdown"
+        )
+
+
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle phone contact sharing"""
+    user_id = update.effective_user.id
+    register_user(update.effective_user)
+    phone = update.message.contact.phone_number
+    users[user_id]["phone"] = phone
+    
+    if user_id in user_db:
+        user_db[user_id]["phone"] = phone
+    
+    if step(user_id) == "consult_phone":
+        date = users[user_id].get("date", "")
+        available = get_available_slots(date)
+        
+        if not available:
+            await update.message.reply_text("Bu kun uchun vaqt qolmadi.")
+            clear(user_id)
+            await update.message.reply_text(t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+            return
+        
+        keyboard = [available[i:i+3] for i in range(0, len(available), 3)]
+        keyboard.append([t(user_id, "back"), t(user_id, "main")])
+        
+        await update.message.reply_text(
+            t(user_id, "choose_time"),
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        users[user_id]["step"] = "consult_slot"
+
+
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle video uploads"""
+    user_id = update.effective_user.id
+    
+    # Admin panel video inputs
+    if is_in_admin_panel(user_id):
+        if await handle_admin_message(update, context):
+            return
+
+
+async def schedule_reminder(context, user_id, date, slot):
+    """Schedule consultation reminder"""
+    try:
+        slot_time_str = slot.split("-")[0]
+        months_uz = {"yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6, "iyul": 7, "avgust": 8, "sentabr": 9, "oktabr": 10, "noyabr": 11, "dekabr": 12}
+        parts = date.replace(",", "").split()
+        day = int(parts[0])
+        month = months_uz.get(parts[1].lower(), 1)
+        year = int(parts[2])
+        slot_dt = datetime(year, month, day, int(slot_time_str.split(":")[0]), int(slot_time_str.split(":")[1]))
+        remind_at = slot_dt - timedelta(minutes=REMINDER_MINUTES)
+        wait_seconds = (remind_at - datetime.now()).total_seconds()
+        if wait_seconds > 0:
+            await asyncio.sleep(wait_seconds)
+            await context.bot.send_message(user_id, t(user_id, "reminder", date=date, slot=slot), parse_mode="Markdown")
+    except Exception:
+        pass
+
+
+async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle payment approval"""
+    if update.effective_user.id != ADMIN_ID and update.effective_user.id != SUPER_ADMIN_ID:
+        return
+    
+    if not context.args:
+        await update.message.reply_text("Format: /approve_pay_00001")
+        return
+    
+    # Extract payment ID from command
+    command_text = update.message.text
+    pay_id = command_text.replace("/approve_", "")
     
     payment = get_payment(pay_id)
     if not payment:
-        await update.message.reply_text("❌ To'lov topilmadi")
+        await update.message.reply_text("❌ To'lov topilmadi.")
         return
     
-    target_user_id = payment.get("user_id")
+    user_id = payment.get("user_id")
+    payment_type = payment.get("type")
+    course_id = payment.get("course_id")
+    
+    # Approve payment
+    approve_payment(pay_id)
+    
+    # Activate subscription
+    if payment_type == "combo":
+        combo_level, combo_country = course_id.split(":", 1) if course_id and ":" in course_id else (None, None)
+        from courses import get_combo_course_ids as _get_combo_ids
+        uni_id, viza_ids = _get_combo_ids(combo_level, combo_country)
+        all_ids = ([uni_id] if uni_id else []) + viza_ids
+        activate_combo(user_id, all_ids)
+        
+        link = get_country_link(combo_country)
+        link_text = f"\n\n🌍 {combo_country}: {link}" if link else ""
+        
+        await context.bot.send_message(
+            user_id,
+            t(user_id, "combo_approved") + link_text
+        )
+        
+        await update.message.reply_text(f"✅ Combo tasdiqlandi: {user_id}")
+    
+    elif payment_type == "course":
+        expires = activate_course(user_id, course_id)
+        
+        # Get course country link
+        parts = course_id.split("_")
+        if len(parts) >= 3:
+            country = parts[2]
+            link = get_country_link(country)
+            link_text = f"\n\n🌍 {country}: {link}" if link else ""
+        else:
+            link_text = ""
+        
+        # Notify user
+        await context.bot.send_message(
+            user_id,
+            t(user_id, "course_approved", course_name=course_id) + link_text,
+            parse_mode="Markdown"
+        )
+        
+        await update.message.reply_text(f"✅ Kurs tasdiqlandi: {user_id} - {course_id}")
+
+
+async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle payment rejection"""
+    if update.effective_user.id != ADMIN_ID and update.effective_user.id != SUPER_ADMIN_ID:
+        return
+    
+    if not context.args:
+        await update.message.reply_text("Format: /reject_pay_00001")
+        return
+    
+    # Extract payment ID from command
+    command_text = update.message.text
+    pay_id = command_text.replace("/reject_", "")
+    
+    payment = get_payment(pay_id)
+    if not payment:
+        await update.message.reply_text("❌ To'lov topilmadi.")
+        return
+    
+    user_id = payment.get("user_id")
+    
+    # Reject payment
+    reject_payment(pay_id)
+    
+    # Notify user
+    await context.bot.send_message(
+        user_id,
+        t(user_id, "payment_rejected"),
+        parse_mode="Markdown"
+    )
+    
+    await update.message.reply_text(f"❌ To'lov rad etildi: {user_id}")
+    
+    if user_id in users:
+        clear(user_id)
+
+
+async def handle_admin_approve_internal(context, pay_id):
+    """Internal approval handler for admin panel"""
+    payment = get_payment(pay_id)
+    if not payment:
+        return False
+    
+    user_id = payment.get("user_id")
     payment_type = payment.get("type")
     course_id = payment.get("course_id")
     
     approve_payment(pay_id)
     
-    from texts import t
-    
     if payment_type == "combo":
         combo_level, combo_country = course_id.split(":", 1) if course_id and ":" in course_id else (None, None)
-        from courses import get_combo_course_ids
-        uni_id, viza_ids = get_combo_course_ids(combo_level, combo_country)
+        from courses import get_combo_course_ids as _get_combo_ids, get_course_by_id
+        uni_id, viza_ids = _get_combo_ids(combo_level, combo_country)
         all_ids = ([uni_id] if uni_id else []) + viza_ids
-        activate_combo(target_user_id, all_ids)
-        
+        activate_combo(user_id, all_ids)
+
         link = get_country_link(combo_country)
         link_text = f"\n\n🌍 {combo_country}: {link}" if link else ""
-        try:
-            await context.bot.send_message(
-                target_user_id,
-                t(target_user_id, "combo_approved") + link_text,
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-        await update.message.reply_text(f"✅ Combo tasdiqlandi: {target_user_id}")
+        await context.bot.send_message(user_id, t(user_id, "combo_approved") + link_text, parse_mode="Markdown")
+
+        from referrals import register_referral_purchase, PURCHASE_REWARD_USD
+        referrer_id = register_referral_purchase(user_id)
+        if referrer_id:
+            try:
+                await context.bot.send_message(
+                    referrer_id,
+                    f"💸 Referal linkingiz orqali start bosgan user kursimizni sotib oldi!\n\n"
+                    f"💰 Sizga ${PURCHASE_REWARD_USD} hisobingizga qo'shildi.\n"
+                    f"📊 Mablag'ingizni 'Mening profilim' bo'limida ko'ring."
+                )
+            except Exception:
+                pass
+
+        # Send full content for each unlocked course (universitet + viza)
+        for cid in all_ids:
+            try:
+                course_info = get_course_by_id(cid)
+                if not course_info:
+                    continue
+                course_data = course_info["data"]
+                full = course_data.get("full", {})
+                full_text = full.get("text")
+                full_videos = full.get("videos", [])
+                full_photos = full.get("photos", [])
+
+                if full_text:
+                    await context.bot.send_message(user_id, full_text, parse_mode="Markdown")
+                for vid in full_videos:
+                    try:
+                        v2_id, v2_cap = _media_parts(vid)
+                        await context.bot.send_video(user_id, v2_id, caption=v2_cap, protect_content=True)
+                    except Exception:
+                        pass
+                for ph in full_photos:
+                    try:
+                        p2_id, p2_cap = _media_parts(ph)
+                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap, protect_content=True)
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f"Combo course send error: {e}")
     
     elif payment_type == "course":
-        activate_course(target_user_id, course_id)
-        parts = course_id.split("_")
-        link_text = ""
-        if len(parts) >= 3:
-            country = parts[2]
-            link = get_country_link(country)
-            if link:
-                link_text = f"\n\n🌍 {country}: {link}"
+        expires = activate_course(user_id, course_id)
+        await context.bot.send_message(user_id, "✅ To'lovingiz tasdiqlandi!\n\n📚 Kursni 'Mening kurslarim' bo'limidan ko'rishingiz mumkin.")
+
+        from referrals import register_referral_purchase, PURCHASE_REWARD_USD
+        referrer_id = register_referral_purchase(user_id)
+        if referrer_id:
+            try:
+                await context.bot.send_message(
+                    referrer_id,
+                    f"💸 Referal linkingiz orqali start bosgan user kursimizni sotib oldi!\n\n"
+                    f"💰 Sizga ${PURCHASE_REWARD_USD} hisobingizga qo'shildi.\n"
+                    f"📊 Mablag'ingizni 'Mening profilim' bo'limida ko'ring."
+                )
+            except Exception:
+                pass
+        
         try:
-            await context.bot.send_message(
-                target_user_id,
-                t(target_user_id, "course_approved", course_name=course_id) + link_text,
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-        await update.message.reply_text(f"✅ Kurs tasdiqlandi: {target_user_id}")
+            from courses import get_course_by_id
+            course_info = get_course_by_id(course_id)
+            if course_info:
+                country = course_info["country"]
+                course_data = course_info["data"]
+                full = course_data.get("full", {})
+                full_text = full.get("text")
+                full_videos = full.get("videos", [])
+                full_photos = full.get("photos", [])
+                
+                if full_text:
+                    await context.bot.send_message(user_id, full_text, parse_mode="Markdown")
+                
+                for vid in full_videos:
+                    try:
+                        v2_id, v2_cap = _media_parts(vid)
+                        await context.bot.send_video(user_id, v2_id, caption=v2_cap, protect_content=True)
+                    except Exception:
+                        pass
+                
+                for ph in full_photos:
+                    try:
+                        p2_id, p2_cap = _media_parts(ph)
+                        await context.bot.send_photo(user_id, p2_id, caption=p2_cap, protect_content=True)
+                    except Exception:
+                        pass
+                
+                link = get_country_link(country)
+                if link:
+                    await context.bot.send_message(user_id, f"👥 *Gurux'ga qo'shiling:* {link}", parse_mode="Markdown")
+        except Exception as e:
+            print(f"Course send error: {e}")
     
     elif payment_type == "consult":
-        try:
-            await context.bot.send_message(
-                target_user_id,
-                "✅ Konsultatsiyangiz tasdiqlandi! Admin: @budgetvizaadmin",
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-        await update.message.reply_text(f"✅ Konsultatsiya tasdiqlandi: {target_user_id}")
+        u = users.get(user_id, {})
+        name = u.get("name", "-")
+        phone = u.get("phone", "-")
+        date = u.get("date", "-")
+        slot = u.get("slot", "-")
+        
+        if date != "-" and slot != "-":
+            if date not in booked_slots:
+                booked_slots[date] = set()
+            booked_slots[date].add(slot)
+            save_booking(user_id, {"name": name, "phone": phone, "date": date, "slot": slot})
+        
+        await context.bot.send_message(
+            user_id,
+            t(user_id, "consult_approved", date=date, slot=slot),
+            parse_mode="Markdown"
+        )
+        
+        if date != "-" and slot != "-":
+            asyncio.create_task(schedule_reminder(context, user_id, date, slot))
+        
+        clear(user_id)
+    
+    return True
 
 
-async def handle_reject_command(update, context):
-    """Handle /reject_pay_xxx commands"""
-    user_id = update.effective_user.id
-    if not is_super_admin(user_id):
-        return
-    
-    command = update.message.text
-    pay_id = command.replace("/reject_", "")
-    
+async def handle_admin_reject_internal(context, pay_id):
+    """Internal rejection handler for admin panel"""
     payment = get_payment(pay_id)
     if not payment:
-        await update.message.reply_text("❌ To'lov topilmadi")
-        return
+        return False
     
-    target_user_id = payment.get("user_id")
+    user_id = payment.get("user_id")
     reject_payment(pay_id)
     
-    from texts import t
-    try:
-        await context.bot.send_message(target_user_id, t(target_user_id, "payment_rejected"), parse_mode="Markdown")
-    except Exception:
-        pass
+    await context.bot.send_message(
+        user_id,
+        t(user_id, "payment_rejected"),
+        parse_mode="Markdown"
+    )
     
-    await update.message.reply_text(f"❌ To'lov rad etildi: {target_user_id}")
+    return True
+
+
+# Build application
+app = ApplicationBuilder().token(TOKEN).build()
+
+# Commands
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("panel", open_admin_panel))
+
+# Admin approve/reject with pattern matching - use new admin_panel handlers
+from telegram.ext import MessageHandler, filters as Filters
+app.add_handler(MessageHandler(Filters.Regex(r'^/approve_pay_\d+$'), handle_approve_command))
+app.add_handler(MessageHandler(Filters.Regex(r'^/reject_pay_\d+$'), handle_reject_command))
+
+# Inline callbacks (for course buy buttons)
+app.add_handler(CallbackQueryHandler(handle_callback))
+
+# Messages
+app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+app.add_handler(MessageHandler(filters.VIDEO, handle_video))
+app.add_handler(MessageHandler(filters.TEXT, handle_message))
+
+# Seed default countries on startup
+try:
+    seed_default_countries()
+except Exception as e:
+    print(f"Seed error: {e}")
+
+print("🎓 Budget Viza bot ishlamoqda...")
+app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)

@@ -43,7 +43,7 @@ def phone_keyboard(user_id):
 def language_keyboard():
     """Language selection"""
     return ReplyKeyboardMarkup(
-        [["ðºð¿ O'zbek"], ["ð¬ð§ English"]],
+        [["🇺🇿 O'zbek"], ["🇬🇧 English"]],
         resize_keyboard=True
     )
 
@@ -82,12 +82,12 @@ def course_action_keyboard(user_id, course_id, has_access=False):
     
     if not has_access:
         buttons.append([InlineKeyboardButton(
-            f"ð³ To'liq kursni sotib olish - ${COURSE_PRICE}",
+            f"💳 To'liq kursni sotib olish - ${COURSE_PRICE}",
             callback_data=f"buy:course:{course_id}"
         )])
     
     buttons.append([InlineKeyboardButton(
-        "ð Orqaga",
+        "🔙 Orqaga",
         callback_data="course:back"
     )])
     

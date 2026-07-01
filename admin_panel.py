@@ -27,6 +27,7 @@ BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
+BTN_REFERRALS = "💸 Referal to'lovlari"
 BTN_WELCOME_TEXT = "📝 Matnni tahrirlash"
 BTN_WELCOME_PHOTO = "🎥 Rasm qo'shish"
 BTN_WELCOME_VIDEO = "🎬 Video qo'shish"
@@ -127,6 +128,7 @@ def main_admin_kb():
         [BTN_USERS, BTN_BOOKINGS],
         [BTN_ADMINS, BTN_BROADCAST],
         [BTN_SEND_USER, BTN_WELCOME_MSG],
+        [BTN_REFERRALS],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -513,6 +515,10 @@ async def handle_main_screen(update, context, text):
             parse_mode="Markdown"
         )
         return True
+
+    if text == BTN_REFERRALS:
+        await show_referral_payouts(update, context)
+        return True
     
     if screen == "welcome_menu":
         if text == BTN_WELCOME_TEXT:
@@ -551,6 +557,38 @@ async def handle_main_screen(update, context, text):
     return True  # we're in admin panel, swallow other messages
 
 
+# ============ REFERRAL PAYOUTS ============
+async def show_referral_payouts(update, context):
+    from referrals import get_pending_payouts, mark_payout_paid
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    pending = get_pending_payouts()
+    if not pending:
+        await update.message.reply_text(
+            "💸 *Referal to'lovlari*\n\nHozircha kutayotgan so'rovlar yo'q.",
+            reply_markup=main_admin_kb(),
+            parse_mode="Markdown"
+        )
+        return
+
+    for req in pending:
+        text = (
+            f"💸 *To'lov so'rovi* `{req['id']}`\n\n"
+            f"👤 User ID: `{req['user_id']}`\n"
+            f"💰 Miqdor: {req['amount_som']:,} so'm\n"
+            f"💳 Karta: {req['card_number']}\n"
+            f"👤 Karta egasi: {req['card_holder']}\n"
+            f"📅 Sana: {req['date']}"
+        )
+        buttons = [[InlineKeyboardButton("✅ To'landi deb belgilash", callback_data=f"payout:paid:{req['id']}")]]
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+
+    await update.message.reply_text(
+        f"Jami kutayotgan so'rovlar: {len(pending)} ta",
+        reply_markup=main_admin_kb()
+    )
+
+
 # ============ STATISTICS ============
 async def show_statistics(update, context):
     payment_stats = get_payment_stats()
@@ -569,17 +607,40 @@ async def show_statistics(update, context):
     await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
 
 
-async def show_users(update, context):
-    text = f"👥 *USERLAR*\n\nJami: {len(user_db)}\n\n"
-    
-    for uid, data in list(user_db.items())[:20]:
+USERS_PER_PAGE = 30
+
+
+async def show_users(update, context, page=0):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    all_users = list(user_db.items())
+    total = len(all_users)
+    total_pages = max(1, (total + USERS_PER_PAGE - 1) // USERS_PER_PAGE)
+    page = max(0, min(page, total_pages - 1))
+
+    start_idx = page * USERS_PER_PAGE
+    end_idx = start_idx + USERS_PER_PAGE
+    page_users = all_users[start_idx:end_idx]
+
+    text = f"👥 *USERLAR*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
+    for uid, data in page_users:
         name = data.get("first_name", "User")
         text += f"• {name} — `{uid}`\n"
-    
-    if len(user_db) > 20:
-        text += f"\n... va yana {len(user_db) - 20} ta"
-    
-    await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"users_page:{page - 1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_page:{page + 1}"))
+
+    markup = InlineKeyboardMarkup([nav_buttons]) if nav_buttons else None
+
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
+        if markup:
+            await update.message.reply_text("Sahifalar:", reply_markup=markup)
 
 
 async def show_bookings(update, context):
@@ -1450,6 +1511,22 @@ async def handle_admin_callback(update, context):
             text=str(fname) + " (@" + str(uname) + ") ga xabar yuboring:",
             reply_markup=cancel_kb()
         )
+        return True
+    if data.startswith("users_page:"):
+        page = int(data.split(":", 1)[1])
+        await show_users(update, context, page=page)
+        return True
+
+    if data.startswith("payout:paid:"):
+        req_id = data.split(":", 2)[2]
+        from referrals import mark_payout_paid
+        ok = mark_payout_paid(req_id)
+        if ok:
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+                await query.message.reply_text(f"✅ `{req_id}` to'landi deb belgilandi.", parse_mode="Markdown")
+            except Exception:
+                pass
         return True
     return False
 

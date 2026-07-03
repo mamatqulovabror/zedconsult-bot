@@ -611,13 +611,14 @@ USERS_PER_PAGE = 30
 
 
 async def show_users(update, context, page=0):
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     def esc(s):
-                s = str(s)
-                for ch in ['_', '*', '`', '[', ']']:
-                                s = s.replace(ch, '\\' + ch)
-                            return s
+        """Escape Telegram Markdown special chars so bad names don't break the whole message"""
+        s = str(s)
+        for ch in ['_', '*', '`', '[', ']']:
+            s = s.replace(ch, '\\' + ch)
+        return s
 
     all_users = list(user_db.items())
     total = len(all_users)
@@ -630,30 +631,32 @@ async def show_users(update, context, page=0):
 
     text = f"👥 *USERLAR*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
     for uid, data in page_users:
-                name = esc(data.get("first_name", "User"))
+        name = esc(data.get("first_name", "User"))
         username = data.get("username", "—")
         username_part = f"@{esc(username)}" if username and username != "—" else "—"
         text += f"• {name} | {username_part} | `{uid}`\n"
 
     nav_buttons = []
     if page > 0:
-                nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"users_page:{page - 1}"))
+        nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"users_page:{page - 1}"))
     if page < total_pages - 1:
-                nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_page:{page + 1}"))
+        nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_page:{page + 1}"))
 
     markup = InlineKeyboardMarkup([nav_buttons]) if nav_buttons else None
 
     try:
-                if update.callback_query:
-                                await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
-    else:
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
+        else:
             await update.message.reply_text(text, reply_markup=markup, parse_mode="Markdown")
-except Exception:
+    except Exception:
+        # Fallback: if Markdown parsing still fails for any reason, send as plain text
         plain = text.replace('\\', '').replace('*', '').replace('`', '')
         if update.callback_query:
-                        await update.callback_query.edit_message_text(plain, reply_markup=markup)
+            await update.callback_query.edit_message_text(plain, reply_markup=markup)
         else:
             await update.message.reply_text(plain, reply_markup=markup)
+
 
 async def show_bookings(update, context):
     if not bookings_db:

@@ -559,8 +559,30 @@ async def handle_main_screen(update, context, text):
 
 # ============ REFERRAL PAYOUTS ============
 async def show_referral_payouts(update, context):
-    from referrals import get_pending_payouts, mark_payout_paid
+    from referrals import get_pending_payouts, mark_payout_paid, get_referral_leaderboard
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    def esc(s):
+        s = str(s)
+        for ch in ['_', '*', '`', '[', ']']:
+            s = s.replace(ch, '\\' + ch)
+        return s
+
+    leaderboard = get_referral_leaderboard(limit=30)
+    if leaderboard:
+        lb_text = "🏆 *Referal reytingi* (top 30)\n\n"
+        for i, row in enumerate(leaderboard, start=1):
+            uid = row["user_id"]
+            udata = user_db.get(uid, {})
+            name = esc(udata.get("first_name", "User"))
+            username = udata.get("username", "—")
+            username_part = f"@{esc(username)}" if username and username != "—" else "—"
+            lb_text += f"{i}. {name} | {username_part} | `{uid}`\n   👥 {row['starts']} start | 💳 {row['purchases']} xarid\n"
+        try:
+            await update.message.reply_text(lb_text, parse_mode="Markdown")
+        except Exception:
+            plain = lb_text.replace('\\', '').replace('*', '').replace('`', '')
+            await update.message.reply_text(plain)
 
     pending = get_pending_payouts()
     if not pending:

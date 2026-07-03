@@ -203,6 +203,23 @@ def get_pending_payouts():
     return [r for r in data["payout_requests"] if r["status"] == "pending"]
 
 
+def get_referral_leaderboard(limit=30):
+    """Returns list of dicts sorted by starts desc: [{"user_id": int, "starts": int, "purchases": int}, ...]"""
+    data = _load()
+    rows = []
+    for uid_str, info in data["referrers"].items():
+        starts = info.get("starts", 0)
+        purchases = info.get("purchases", 0)
+        if starts > 0 or purchases > 0:
+            rows.append({
+                "user_id": int(uid_str),
+                "starts": starts,
+                "purchases": purchases,
+            })
+    rows.sort(key=lambda r: (r["starts"], r["purchases"]), reverse=True)
+    return rows[:limit]
+
+
 def mark_payout_paid(req_id):
     data = _load()
     for r in data["payout_requests"]:

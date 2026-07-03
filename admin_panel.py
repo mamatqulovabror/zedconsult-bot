@@ -625,7 +625,9 @@ async def show_users(update, context, page=0):
     text = f"👥 *USERLAR*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
     for uid, data in page_users:
         name = data.get("first_name", "User")
-        text += f"• {name} — `{uid}`\n"
+        username = data.get("username", "—")
+        username_part = f"@{username}" if username and username != "—" else "—"
+        text += f"• {name} | {username_part} | `{uid}`\n"
 
     nav_buttons = []
     if page > 0:
@@ -638,9 +640,7 @@ async def show_users(update, context, page=0):
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
     else:
-        await update.message.reply_text(text, reply_markup=main_admin_kb(), parse_mode="Markdown")
-        if markup:
-            await update.message.reply_text("Sahifalar:", reply_markup=markup)
+        await update.message.reply_text(text, reply_markup=markup, parse_mode="Markdown")
 
 
 async def show_bookings(update, context):

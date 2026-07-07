@@ -28,6 +28,7 @@ BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
 BTN_REFERRALS = "💸 Referal to'lovlari"
+BTN_LIMIT_REFERRALS = "🔒 Cheklangan referrallar"
 BTN_WELCOME_TEXT = "📝 Matnni tahrirlash"
 BTN_WELCOME_PHOTO = "🎥 Rasm qo'shish"
 BTN_WELCOME_VIDEO = "🎬 Video qo'shish"
@@ -129,6 +130,7 @@ def main_admin_kb():
         [BTN_ADMINS, BTN_BROADCAST],
         [BTN_SEND_USER, BTN_WELCOME_MSG],
         [BTN_REFERRALS],
+        [BTN_LIMIT_REFERRALS],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -519,6 +521,28 @@ async def handle_main_screen(update, context, text):
     if text == BTN_REFERRALS:
         await show_referral_payouts(update, context)
         return True
+
+    if text == BTN_LIMIT_REFERRALS:
+        await show_limited_referrals(update, context)
+        return True
+
+    if text == BTN_ADD_LIMIT:
+        set_state(user_id, mode="limit_referral_id")
+        await update.message.reply_text(
+            "🔒 *Yangi cheklov qo'shish*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+
+    if text == BTN_REMOVE_LIMIT:
+        set_state(user_id, mode="unlimit_referral_id")
+        await update.message.reply_text(
+            "❌ *Cheklovni olib tashlash*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
     
     if screen == "welcome_menu":
         if text == BTN_WELCOME_TEXT:
@@ -558,6 +582,51 @@ async def handle_main_screen(update, context, text):
 
 
 # ============ REFERRAL PAYOUTS ============
+BTN_ADD_LIMIT = "➕ Yangi cheklov qo'shish"
+BTN_REMOVE_LIMIT = "❌ Cheklovni olib tashlash"
+
+
+async def show_limited_referrals(update, context):
+    from referrals import get_limited_referrers
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    def esc(s):
+        s = str(s)
+        for ch in ['_', '*', '`', '[', ']']:
+            s = s.replace(ch, '\\' + ch)
+        return s
+
+    limited = get_limited_referrers()
+
+    if not limited:
+        text = "🔒 *Cheklangan referrallar*\n\nHozircha hech kim cheklanmagan.\n\nBarcha userlarga haqiqiy sonlar ko'rsatilyapti."
+    else:
+        text = "🔒 *Cheklangan referrallar*\n\n"
+        for uid, info in limited:
+            udata = user_db.get(uid, {})
+            name = esc(udata.get("first_name", "User"))
+            username = udata.get("username", "—")
+            username_part = f"@{esc(username)}" if username and username != "—" else "—"
+            percent = info.get("display_percent", 100)
+            text += (
+                f"👤 {name} | {username_part} | `{uid}`\n"
+                f"   Haqiqiy: {info['starts']} start, {info['purchases']} xarid\n"
+                f"   Ko'rsatilgan: {percent}% ({int(info['starts']*percent/100)} start)\n\n"
+            )
+
+    keyboard = ReplyKeyboardMarkup([
+        [BTN_ADD_LIMIT],
+        [BTN_REMOVE_LIMIT],
+        [BTN_BACK]
+    ], resize_keyboard=True)
+
+    try:
+        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    except Exception:
+        plain = text.replace('\\', '').replace('*', '').replace('`', '')
+        await update.message.reply_text(plain, reply_markup=keyboard)
+
+
 async def show_referral_payouts(update, context):
     from referrals import get_pending_payouts, mark_payout_paid, get_referral_leaderboard
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -1433,7 +1502,66 @@ async def handle_input_mode(update, context, mode):
             await message.reply_text("❌ Noto'g'ri ID")
             set_state(user_id, mode="")
         return True
-    
+
+    # ===== Limit referral display % =====
+    if mode == "limit_referral_id" and text:
+        from referrals import get_real_referral_stats
+        try:
+            target_id = int(text)
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
+            return True
+        stats = get_real_referral_stats(target_id)
+        if not stats:
+            await message.reply_text("❌ Bu user referal tizimida ro'yxatdan o'tmagan.")
+            set_state(user_id, mode="")
+            await show_limited_referrals(update, context)
+            return True
+        set_state(user_id, mode="limit_referral_percent", target_id=target_id)
+        await message.reply_text(
+            f"👤 User `{target_id}`\n"
+            f"Haqiqiy: {stats['starts']} start, {stats['purchases']} xarid\n"
+            f"Hozirgi ko'rsatish foizi: {stats['display_percent']}%\n\n"
+            f"Yangi foizni kiriting (1-100):",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+
+    if mode == "limit_referral_percent" and text:
+        from referrals import set_display_percent
+        target_id = state.get("target_id")
+        try:
+            percent = int(text)
+            if not (1 <= percent <= 100):
+                raise ValueError
+        except ValueError:
+            await message.reply_text("❌ 1 dan 100 gacha butun son kiriting.")
+            return True
+        set_display_percent(target_id, percent)
+        set_state(user_id, mode="")
+        await message.reply_text(f"✅ User `{target_id}` uchun ko'rsatish foizi {percent}% ga o'rnatildi.", parse_mode="Markdown")
+        await show_limited_referrals(update, context)
+        return True
+
+    # ===== Remove referral limit =====
+    if mode == "unlimit_referral_id" and text:
+        from referrals import set_display_percent, get_real_referral_stats
+        try:
+            target_id = int(text)
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
+            return True
+        stats = get_real_referral_stats(target_id)
+        if not stats:
+            await message.reply_text("❌ Bu user referal tizimida ro'yxatdan o'tmagan.")
+        else:
+            set_display_percent(target_id, 100)
+            await message.reply_text(f"✅ User `{target_id}` uchun cheklov olib tashlandi (100%).", parse_mode="Markdown")
+        set_state(user_id, mode="")
+        await show_limited_referrals(update, context)
+        return True
+
     if mode == "send_user_msg":
         target_id = state.get("target_id")
         try:

@@ -29,6 +29,9 @@ BTN_SEND_USER = "💬 Userga xabar"
 BTN_WELCOME_MSG = "🏠 Kirish xabari"
 BTN_REFERRALS = "💸 Referal to'lovlari"
 BTN_LIMIT_REFERRALS = "🔒 Cheklangan referrallar"
+BTN_SCHOLARSHIPS = "🎓 Scholarship xabari"
+BTN_SCHOLAR_TEST = "👁 O'zimga test yuborish"
+BTN_SCHOLAR_SEND_ALL = "📤 Hammaga hozir yuborish"
 BTN_WELCOME_TEXT = "📝 Matnni tahrirlash"
 BTN_WELCOME_PHOTO = "🎥 Rasm qo'shish"
 BTN_WELCOME_VIDEO = "🎬 Video qo'shish"
@@ -131,6 +134,7 @@ def main_admin_kb():
         [BTN_SEND_USER, BTN_WELCOME_MSG],
         [BTN_REFERRALS],
         [BTN_LIMIT_REFERRALS],
+        [BTN_SCHOLARSHIPS],
         [BTN_EXIT]
     ], resize_keyboard=True)
 
@@ -524,6 +528,37 @@ async def handle_main_screen(update, context, text):
 
     if text == BTN_LIMIT_REFERRALS:
         await show_limited_referrals(update, context)
+        return True
+
+    if text == BTN_SCHOLARSHIPS:
+        from data import user_db
+        kb = ReplyKeyboardMarkup(
+            [[BTN_SCHOLAR_TEST], [BTN_SCHOLAR_SEND_ALL], [BTN_BACK]],
+            resize_keyboard=True
+        )
+        await update.message.reply_text(
+            f"🎓 *Scholarship xabari*\n\n"
+            f"Har kuni soat 10:00 da barcha userlarga avtomatik yuboriladi.\n"
+            f"👥 Hozirgi userlar soni: {len(user_db)}",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+        return True
+
+    if text == BTN_SCHOLAR_TEST:
+        from scholarships import send_digest_to_user
+        ok = await send_digest_to_user(context.bot, user_id)
+        if not ok:
+            await update.message.reply_text("❌ Xatolik yuz berdi.")
+        return True
+
+    if text == BTN_SCHOLAR_SEND_ALL:
+        from scholarships import broadcast_scholarships
+        await update.message.reply_text("📤 Yuborilmoqda... (userlar soniga qarab vaqt oladi)")
+        sent, failed = await broadcast_scholarships(context.bot)
+        await update.message.reply_text(
+            f"✅ Yuborildi: {sent} ta user\n❌ Yuborilmadi (bloklagan): {failed} ta"
+        )
         return True
 
     if text == BTN_ADD_LIMIT:

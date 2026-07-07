@@ -11,6 +11,7 @@ def main_menu(user_id):
         [t(user_id, "btn_university"), t(user_id, "btn_consult")],
         [t(user_id, "btn_work"), t(user_id, "btn_combo")],
         [t(user_id, "btn_visa"), t(user_id, "btn_my_courses")],
+        [t(user_id, "btn_deadlines")],
         [t(user_id, "btn_profile"), t(user_id, "btn_about")],
     ]
     

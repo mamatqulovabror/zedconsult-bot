@@ -23,6 +23,8 @@ BTN_GROUPS = "🔗 Guruh linklar"
 BTN_STATS = "📊 Statistika"
 BTN_USERS = "👥 Userlar"
 BTN_BOOKINGS = "📋 Bronlar"
+BTN_CHECK_USERS = "🔍 Hammani tekshirish"
+BTN_BLOCKED_LIST = "🚫 Bloklaganlar ro'yxati"
 BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
@@ -738,6 +740,7 @@ USERS_PER_PAGE = 30
 
 async def show_users(update, context, page=0):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from user_status import get_stats
 
     def esc(s):
         """Escape Telegram Markdown special chars so bad names don't break the whole message"""
@@ -755,7 +758,14 @@ async def show_users(update, context, page=0):
     end_idx = start_idx + USERS_PER_PAGE
     page_users = all_users[start_idx:end_idx]
 
-    text = f"👥 *USERLAR*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
+    stats = get_stats()
+    text = (
+        f"👥 *USERLAR*\n\n"
+        f"Jami: {stats['total']}\n"
+        f"✅ Faol: {stats['active']}\n"
+        f"🚫 Bloklangan: {stats['blocked']}\n\n"
+        f"Sahifa: {page + 1}/{total_pages}\n\n"
+    )
     for uid, data in page_users:
         name = esc(data.get("first_name", "User"))
         username = data.get("username", "—")
@@ -768,7 +778,10 @@ async def show_users(update, context, page=0):
     if page < total_pages - 1:
         nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_page:{page + 1}"))
 
-    markup = InlineKeyboardMarkup([nav_buttons]) if nav_buttons else None
+    rows = [nav_buttons] if nav_buttons else []
+    rows.append([InlineKeyboardButton("🔍 Hammani tekshirish", callback_data="users_check_all")])
+    rows.append([InlineKeyboardButton("🚫 Bloklaganlar ro'yxati", callback_data="users_blocked_list:0")])
+    markup = InlineKeyboardMarkup(rows)
 
     try:
         if update.callback_query:
@@ -777,6 +790,61 @@ async def show_users(update, context, page=0):
             await update.message.reply_text(text, reply_markup=markup, parse_mode="Markdown")
     except Exception:
         # Fallback: if Markdown parsing still fails for any reason, send as plain text
+        plain = text.replace('\\', '').replace('*', '').replace('`', '')
+        if update.callback_query:
+            await update.callback_query.edit_message_text(plain, reply_markup=markup)
+        else:
+            await update.message.reply_text(plain, reply_markup=markup)
+
+
+BLOCKED_PER_PAGE = 20
+
+
+async def show_blocked_list(update, context, page=0):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from user_status import get_blocked_users
+
+    def esc(s):
+        s = str(s)
+        for ch in ['_', '*', '`', '[', ']']:
+            s = s.replace(ch, '\\' + ch)
+        return s
+
+    blocked = get_blocked_users()
+    total = len(blocked)
+
+    if total == 0:
+        text = "🚫 *Bloklaganlar ro'yxati*\n\nHozircha hech kim bloklamagan yoki hali tekshirilmagan.\n\n👉 \"🔍 Hammani tekshirish\" tugmasini bosing."
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔍 Hammani tekshirish", callback_data="users_check_all")]])
+    else:
+        total_pages = max(1, (total + BLOCKED_PER_PAGE - 1) // BLOCKED_PER_PAGE)
+        page = max(0, min(page, total_pages - 1))
+        start_idx = page * BLOCKED_PER_PAGE
+        end_idx = start_idx + BLOCKED_PER_PAGE
+        page_items = blocked[start_idx:end_idx]
+
+        text = f"🚫 *Bloklaganlar ro'yxati*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
+        for uid, info in page_items:
+            name = esc(info.get("first_name", "—"))
+            username = info.get("username", "—")
+            username_part = f"@{esc(username)}" if username and username != "—" else "—"
+            date = info.get("blocked_date", "—")
+            text += f"• {name} | {username_part} | `{uid}`\n  📅 {date}\n"
+
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"users_blocked_list:{page - 1}"))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_blocked_list:{page + 1}"))
+        rows = [nav_buttons] if nav_buttons else []
+        markup = InlineKeyboardMarkup(rows) if rows else None
+
+    try:
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(text, reply_markup=markup, parse_mode="Markdown")
+    except Exception:
         plain = text.replace('\\', '').replace('*', '').replace('`', '')
         if update.callback_query:
             await update.callback_query.edit_message_text(plain, reply_markup=markup)
@@ -1620,6 +1688,7 @@ async def handle_input_mode(update, context, mode):
     
     # ===== Broadcast =====
     if mode == "broadcast":
+        from user_status import mark_blocked, mark_active
         sent = 0
         failed = 0
         for uid in user_db.keys():
@@ -1631,8 +1700,12 @@ async def handle_input_mode(update, context, mode):
                 elif text:
                     await context.bot.send_message(uid, text)
                 sent += 1
-            except Exception:
+                mark_active(uid)
+            except Exception as e:
                 failed += 1
+                err = str(e).lower()
+                if "blocked" in err or "chat not found" in err or "deactivated" in err or "kicked" in err:
+                    mark_blocked(uid, reason=str(e)[:100])
         
         await message.reply_text(f"✅ Broadcast yuborildi!\n\n✅ Yuborildi: {sent}\n❌ Xato: {failed}")
         set_state(user_id, mode="")
@@ -1715,6 +1788,31 @@ async def handle_admin_callback(update, context):
     if data.startswith("users_page:"):
         page = int(data.split(":", 1)[1])
         await show_users(update, context, page=page)
+        return True
+
+    if data == "users_check_all":
+        from user_status import check_all_users, get_stats
+        await query.message.reply_text("🔍 Tekshirilmoqda... (866 user uchun ~1-2 daqiqa vaqt oladi)")
+
+        async def progress(checked, total):
+            try:
+                await query.message.reply_text(f"⏳ {checked}/{total} tekshirildi...")
+            except Exception:
+                pass
+
+        active, blocked = await check_all_users(context.bot, progress_callback=progress)
+        stats = get_stats()
+        await query.message.reply_text(
+            f"✅ Tekshiruv tugadi!\n\n"
+            f"Jami: {stats['total']}\n"
+            f"✅ Faol: {stats['active']}\n"
+            f"🚫 Bloklangan: {stats['blocked']}"
+        )
+        return True
+
+    if data.startswith("users_blocked_list:"):
+        page = int(data.split(":", 1)[1])
+        await show_blocked_list(update, context, page=page)
         return True
 
     if data.startswith("payout:paid:"):

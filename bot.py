@@ -1619,7 +1619,13 @@ async def handle_admin_reject_internal(context, pay_id):
 
 
 # Build application
-app = ApplicationBuilder().token(TOKEN).build()
+async def _post_init(application):
+    """Start background tasks after the bot is initialized"""
+    from scholarships import scholarship_scheduler
+    asyncio.create_task(scholarship_scheduler(application))
+    print("⏰ Scholarship scheduler ishga tushdi (har kuni 10:00)")
+
+app = ApplicationBuilder().token(TOKEN).post_init(_post_init).build()
 
 # Commands
 app.add_handler(CommandHandler("start", start))

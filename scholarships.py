@@ -15,87 +15,87 @@ SEND_HOUR = 10  # 10:00 Toshkent vaqti
 # opens/deadline: "YYYY-MM-DD" (joriy sikl). rolling=True bo'lsa sanalar shart emas.
 SEED = [
     # ============ BAKALAVR (20) ============
-    {"id": "gks_u", "name": "GKS — Global Korea Scholarship", "flag": "🇰🇷", "level": "bakalavr",
+    {"id": "gks_u", "name": "GKS — Global Korea Scholarship", "flag": "🇰🇷", "country": "Janubiy Koreya", "level": "bakalavr",
      "url": "https://www.studyinkorea.go.kr", "opens": "2026-09-15", "deadline": "2026-10-20"},
-    {"id": "kaist_u", "name": "KAIST International Scholarship", "flag": "🇰🇷", "level": "bakalavr",
+    {"id": "kaist_u", "name": "KAIST International Scholarship", "flag": "🇰🇷", "country": "Janubiy Koreya", "level": "bakalavr",
      "url": "https://admission.kaist.ac.kr", "opens": "2026-07-01", "deadline": "2026-09-10"},
-    {"id": "ugrad", "name": "Global UGRAD (almashinuv)", "flag": "🇺🇸", "level": "bakalavr",
+    {"id": "ugrad", "name": "Global UGRAD (almashinuv)", "flag": "🇺🇸", "country": "AQSH", "level": "bakalavr",
      "url": "https://www.worldlearning.org/program/global-undergraduate-exchange-program", "opens": "2026-12-01", "deadline": "2027-02-15"},
-    {"id": "edusa_of", "name": "EducationUSA Opportunity Funds", "flag": "🇺🇸", "level": "bakalavr",
+    {"id": "edusa_of", "name": "EducationUSA Opportunity Funds", "flag": "🇺🇸", "country": "AQSH", "level": "bakalavr",
      "url": "https://educationusa.state.gov", "rolling": True},
-    {"id": "nyuad", "name": "NYU Abu Dhabi (to'liq grant)", "flag": "🇦🇪", "level": "bakalavr",
+    {"id": "nyuad", "name": "NYU Abu Dhabi (to'liq grant)", "flag": "🇦🇪", "country": "BAA", "level": "bakalavr",
      "url": "https://nyuad.nyu.edu", "opens": "2026-08-01", "deadline": "2026-11-01"},
-    {"id": "khalifa", "name": "Khalifa University Scholarship", "flag": "🇦🇪", "level": "bakalavr",
+    {"id": "khalifa", "name": "Khalifa University Scholarship", "flag": "🇦🇪", "country": "BAA", "level": "bakalavr",
      "url": "https://www.ku.ac.ae", "opens": "2026-10-01", "deadline": "2027-02-10"},
-    {"id": "mext_u", "name": "MEXT (Yaponiya hukumati)", "flag": "🇯🇵", "level": "bakalavr",
+    {"id": "mext_u", "name": "MEXT (Yaponiya hukumati)", "flag": "🇯🇵", "country": "Yaponiya", "level": "bakalavr",
      "url": "https://www.uz.emb-japan.go.jp", "opens": "2027-04-01", "deadline": "2027-06-10"},
-    {"id": "csc_u", "name": "CSC — Xitoy hukumat granti", "flag": "🇨🇳", "level": "bakalavr",
+    {"id": "csc_u", "name": "CSC — Xitoy hukumat granti", "flag": "🇨🇳", "country": "Xitoy", "level": "bakalavr",
      "url": "https://www.campuschina.org", "opens": "2026-12-01", "deadline": "2027-03-31"},
-    {"id": "turkiye_u", "name": "Türkiye Burslari", "flag": "🇹🇷", "level": "bakalavr",
+    {"id": "turkiye_u", "name": "Türkiye Burslari", "flag": "🇹🇷", "country": "Turkiya", "level": "bakalavr",
      "url": "https://www.turkiyeburslari.gov.tr", "opens": "2027-01-10", "deadline": "2027-02-20"},
-    {"id": "hungaricum_u", "name": "Stipendium Hungaricum", "flag": "🇭🇺", "level": "bakalavr",
+    {"id": "hungaricum_u", "name": "Stipendium Hungaricum", "flag": "🇭🇺", "country": "Vengriya", "level": "bakalavr",
      "url": "https://stipendiumhungaricum.hu", "opens": "2026-11-15", "deadline": "2027-01-15"},
-    {"id": "romania_u", "name": "Ruminiya hukumat granti", "flag": "🇷🇴", "level": "bakalavr",
+    {"id": "romania_u", "name": "Ruminiya hukumat granti", "flag": "🇷🇴", "country": "Ruminiya", "level": "bakalavr",
      "url": "https://studyinromania.gov.ro", "opens": "2027-01-15", "deadline": "2027-03-15"},
-    {"id": "dsu_italy", "name": "Italiya DSU (regional grant)", "flag": "🇮🇹", "level": "bakalavr",
+    {"id": "dsu_italy", "name": "Italiya DSU (regional grant)", "flag": "🇮🇹", "country": "Italiya", "level": "bakalavr",
      "url": "https://www.universitaly.it", "opens": "2026-07-10", "deadline": "2026-09-05"},
-    {"id": "russia_quota", "name": "Rossiya davlat kvotasi", "flag": "🇷🇺", "level": "bakalavr",
+    {"id": "russia_quota", "name": "Rossiya davlat kvotasi", "flag": "🇷🇺", "country": "Rossiya", "level": "bakalavr",
      "url": "https://education-in-russia.com", "opens": "2026-09-01", "deadline": "2027-01-20"},
-    {"id": "saudi", "name": "Study in Saudi Arabia grantlari", "flag": "🇸🇦", "level": "bakalavr",
+    {"id": "saudi", "name": "Study in Saudi Arabia grantlari", "flag": "🇸🇦", "country": "Saudiya Arabistoni", "level": "bakalavr",
      "url": "https://studyinsaudi.moe.gov.sa", "rolling": True},
-    {"id": "qatar_ec", "name": "Qatar Education City", "flag": "🇶🇦", "level": "bakalavr",
+    {"id": "qatar_ec", "name": "Qatar Education City", "flag": "🇶🇦", "country": "Qatar", "level": "bakalavr",
      "url": "https://www.qf.org.qa", "opens": "2026-09-01", "deadline": "2027-02-01"},
-    {"id": "nazarbayev", "name": "Nazarbayev University", "flag": "🇰🇿", "level": "bakalavr",
+    {"id": "nazarbayev", "name": "Nazarbayev University", "flag": "🇰🇿", "country": "Qozog'iston", "level": "bakalavr",
      "url": "https://nu.edu.kz", "opens": "2026-10-01", "deadline": "2027-03-01"},
-    {"id": "isdb", "name": "IsDB — Islom Taraqqiyot Banki", "flag": "🌍", "level": "bakalavr",
+    {"id": "isdb", "name": "IsDB — Islom Taraqqiyot Banki", "flag": "🌍", "country": "Xalqaro", "level": "bakalavr",
      "url": "https://www.isdb.org/scholarships", "opens": "2026-12-15", "deadline": "2027-02-28"},
-    {"id": "pearson", "name": "Lester B. Pearson (Toronto)", "flag": "🇨🇦", "level": "bakalavr",
+    {"id": "pearson", "name": "Lester B. Pearson (Toronto)", "flag": "🇨🇦", "country": "Kanada", "level": "bakalavr",
      "url": "https://future.utoronto.ca/pearson", "opens": "2026-09-01", "deadline": "2026-11-30"},
-    {"id": "brunei", "name": "Bruney hukumat granti", "flag": "🇧🇳", "level": "bakalavr",
+    {"id": "brunei", "name": "Bruney hukumat granti", "flag": "🇧🇳", "country": "Bruney", "level": "bakalavr",
      "url": "https://www.mfa.gov.bn/Pages/BDGS.aspx", "opens": "2027-01-01", "deadline": "2027-02-15"},
-    {"id": "ubc", "name": "UBC International Scholars", "flag": "🇨🇦", "level": "bakalavr",
+    {"id": "ubc", "name": "UBC International Scholars", "flag": "🇨🇦", "country": "Kanada", "level": "bakalavr",
      "url": "https://you.ubc.ca", "opens": "2026-09-01", "deadline": "2026-12-01"},
 
     # ============ MAGISTR (20) ============
-    {"id": "fulbright", "name": "Fulbright (AQSH hukumati)", "flag": "🇺🇸", "level": "magistr",
+    {"id": "fulbright", "name": "Fulbright (AQSH hukumati)", "flag": "🇺🇸", "country": "AQSH", "level": "magistr",
      "url": "https://uz.usembassy.gov/fulbright-foreign-student-program", "opens": "2027-02-01", "deadline": "2027-05-25"},
-    {"id": "chevening", "name": "Chevening (Buyuk Britaniya)", "flag": "🇬🇧", "level": "magistr",
+    {"id": "chevening", "name": "Chevening (Buyuk Britaniya)", "flag": "🇬🇧", "country": "Buyuk Britaniya", "level": "magistr",
      "url": "https://www.chevening.org", "opens": "2026-08-04", "deadline": "2026-10-07"},
-    {"id": "schwarzman", "name": "Schwarzman Scholars (Tsinghua)", "flag": "🇨🇳", "level": "magistr",
+    {"id": "schwarzman", "name": "Schwarzman Scholars (Tsinghua)", "flag": "🇨🇳", "country": "Xitoy", "level": "magistr",
      "url": "https://www.schwarzmanscholars.org", "opens": "2026-04-08", "deadline": "2026-09-09"},
-    {"id": "rhodes", "name": "Rhodes Global (Oxford)", "flag": "🇬🇧", "level": "magistr",
+    {"id": "rhodes", "name": "Rhodes Global (Oxford)", "flag": "🇬🇧", "country": "Buyuk Britaniya", "level": "magistr",
      "url": "https://www.rhodeshouse.ox.ac.uk", "opens": "2026-06-01", "deadline": "2026-10-01"},
-    {"id": "gates", "name": "Gates Cambridge", "flag": "🇬🇧", "level": "magistr",
+    {"id": "gates", "name": "Gates Cambridge", "flag": "🇬🇧", "country": "Buyuk Britaniya", "level": "magistr",
      "url": "https://www.gatescambridge.org", "opens": "2026-09-01", "deadline": "2026-12-03"},
-    {"id": "clarendon", "name": "Clarendon Fund (Oxford)", "flag": "🇬🇧", "level": "magistr",
+    {"id": "clarendon", "name": "Clarendon Fund (Oxford)", "flag": "🇬🇧", "country": "Buyuk Britaniya", "level": "magistr",
      "url": "https://www.ox.ac.uk/clarendon", "opens": "2026-09-01", "deadline": "2027-01-06"},
-    {"id": "knight", "name": "Knight-Hennessy (Stanford)", "flag": "🇺🇸", "level": "magistr",
+    {"id": "knight", "name": "Knight-Hennessy (Stanford)", "flag": "🇺🇸", "country": "AQSH", "level": "magistr",
      "url": "https://knight-hennessy.stanford.edu", "opens": "2026-06-01", "deadline": "2026-10-08"},
-    {"id": "erasmus", "name": "Erasmus Mundus Joint Masters", "flag": "🇪🇺", "level": "magistr",
+    {"id": "erasmus", "name": "Erasmus Mundus Joint Masters", "flag": "🇪🇺", "country": "Yevropa Ittifoqi", "level": "magistr",
      "url": "https://www.eacea.ec.europa.eu/scholarships/emjmd-catalogue_en", "opens": "2026-10-15", "deadline": "2027-01-15"},
-    {"id": "daad", "name": "DAAD EPOS (Germaniya)", "flag": "🇩🇪", "level": "magistr",
+    {"id": "daad", "name": "DAAD EPOS (Germaniya)", "flag": "🇩🇪", "country": "Germaniya", "level": "magistr",
      "url": "https://www.daad.de", "opens": "2026-08-01", "deadline": "2026-10-15"},
-    {"id": "eiffel", "name": "Eiffel Excellence (Fransiya)", "flag": "🇫🇷", "level": "magistr",
+    {"id": "eiffel", "name": "Eiffel Excellence (Fransiya)", "flag": "🇫🇷", "country": "Fransiya", "level": "magistr",
      "url": "https://www.campusfrance.org/en/eiffel-scholarship-program-of-excellence", "opens": "2026-10-01", "deadline": "2027-01-08"},
-    {"id": "si", "name": "Swedish Institute Scholarships", "flag": "🇸🇪", "level": "magistr",
+    {"id": "si", "name": "Swedish Institute Scholarships", "flag": "🇸🇪", "country": "Shvetsiya", "level": "magistr",
      "url": "https://si.se/en", "opens": "2026-11-10", "deadline": "2027-01-10"},
-    {"id": "gks_g", "name": "GKS — Global Korea Scholarship", "flag": "🇰🇷", "level": "magistr",
+    {"id": "gks_g", "name": "GKS — Global Korea Scholarship", "flag": "🇰🇷", "country": "Janubiy Koreya", "level": "magistr",
      "url": "https://www.studyinkorea.go.kr", "opens": "2027-02-01", "deadline": "2027-03-15"},
-    {"id": "mext_g", "name": "MEXT Research (Yaponiya)", "flag": "🇯🇵", "level": "magistr",
+    {"id": "mext_g", "name": "MEXT Research (Yaponiya)", "flag": "🇯🇵", "country": "Yaponiya", "level": "magistr",
      "url": "https://www.uz.emb-japan.go.jp", "opens": "2027-04-01", "deadline": "2027-06-10"},
-    {"id": "adb_jsp", "name": "ADB-JSP (Osiyo Taraqqiyot Banki)", "flag": "🇯🇵", "level": "magistr",
+    {"id": "adb_jsp", "name": "ADB-JSP (Osiyo Taraqqiyot Banki)", "flag": "🇯🇵", "country": "Yaponiya", "level": "magistr",
      "url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program", "rolling": True},
-    {"id": "csc_g", "name": "CSC — Xitoy hukumat granti", "flag": "🇨🇳", "level": "magistr",
+    {"id": "csc_g", "name": "CSC — Xitoy hukumat granti", "flag": "🇨🇳", "country": "Xitoy", "level": "magistr",
      "url": "https://www.campuschina.org", "opens": "2026-12-01", "deadline": "2027-03-31"},
-    {"id": "turkiye_g", "name": "Türkiye Burslari", "flag": "🇹🇷", "level": "magistr",
+    {"id": "turkiye_g", "name": "Türkiye Burslari", "flag": "🇹🇷", "country": "Turkiya", "level": "magistr",
      "url": "https://www.turkiyeburslari.gov.tr", "opens": "2027-01-10", "deadline": "2027-02-20"},
-    {"id": "hungaricum_g", "name": "Stipendium Hungaricum", "flag": "🇭🇺", "level": "magistr",
+    {"id": "hungaricum_g", "name": "Stipendium Hungaricum", "flag": "🇭🇺", "country": "Vengriya", "level": "magistr",
      "url": "https://stipendiumhungaricum.hu", "opens": "2026-11-15", "deadline": "2027-01-15"},
-    {"id": "mbzuai", "name": "MBZUAI (AI, to'liq grant)", "flag": "🇦🇪", "level": "magistr",
+    {"id": "mbzuai", "name": "MBZUAI (AI, to'liq grant)", "flag": "🇦🇪", "country": "BAA", "level": "magistr",
      "url": "https://mbzuai.ac.ae", "opens": "2026-09-01", "deadline": "2026-11-30"},
-    {"id": "humphrey", "name": "Hubert Humphrey Fellowship", "flag": "🇺🇸", "level": "magistr",
+    {"id": "humphrey", "name": "Hubert Humphrey Fellowship", "flag": "🇺🇸", "country": "AQSH", "level": "magistr",
      "url": "https://www.humphreyfellowship.org", "opens": "2026-05-01", "deadline": "2026-09-01"},
-    {"id": "eyu", "name": "El-Yurt Umidi jamg'armasi", "flag": "🇺🇿", "level": "magistr",
+    {"id": "eyu", "name": "El-Yurt Umidi jamg'armasi", "flag": "🇺🇿", "country": "O'zbekiston", "level": "magistr",
      "url": "https://eyuf.uz", "rolling": True},
 ]
 
@@ -117,12 +117,26 @@ def _save(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def get_items(level=None):
+def get_items(level=None, country=None):
     data = _load()
     items = data.get("items", [])
     if level:
         items = [i for i in items if i.get("level") == level]
+    if country:
+        items = [i for i in items if i.get("country") == country]
     return items
+
+
+def get_countries():
+    """Returns sorted list of (country_name, flag) tuples for all countries present in the data."""
+    data = _load()
+    items = data.get("items", [])
+    seen = {}
+    for i in items:
+        c = i.get("country")
+        if c and c not in seen:
+            seen[c] = i.get("flag", "")
+    return sorted(seen.items(), key=lambda x: x[0])
 
 
 def _parse(d):

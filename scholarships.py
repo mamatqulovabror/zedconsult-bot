@@ -212,12 +212,17 @@ def build_message(level, today=None):
 
 async def send_digest_to_user(bot, user_id):
     """Sends both level digests to one user. Returns True on success."""
+    from user_status import mark_blocked, mark_active
     try:
         await bot.send_message(user_id, build_message("bakalavr"), parse_mode="Markdown")
         await asyncio.sleep(0.05)
         await bot.send_message(user_id, build_message("magistr"), parse_mode="Markdown")
+        mark_active(user_id)
         return True
-    except Exception:
+    except Exception as e:
+        err = str(e).lower()
+        if "blocked" in err or "chat not found" in err or "deactivated" in err or "kicked" in err:
+            mark_blocked(user_id, reason=str(e)[:100])
         return False
 
 

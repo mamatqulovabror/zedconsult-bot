@@ -104,7 +104,18 @@ def _load():
     if os.path.exists(SCHOLARSHIPS_FILE):
         try:
             with open(SCHOLARSHIPS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            # Migration: agar saqlangan itemlarda country maydoni yo'q bo'lsa
+            # (eski versiya keshi), SEED bilan qayta sinxronlaymiz.
+            items = data.get("items", [])
+            needs_migration = (
+                len(items) != len(SEED)
+                or any("country" not in i for i in items)
+            )
+            if needs_migration:
+                data["items"] = SEED
+                _save(data)
+            return data
         except Exception:
             pass
     data = {"items": SEED, "last_sent_date": None}

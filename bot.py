@@ -149,6 +149,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu(user_id)
         )
 
+    # Kanalga obuna bo'lish taklifi (har safar /start bosilganda)
+    try:
+        channel_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Obuna bo'lish✅", url="https://t.me/budgetviza")]
+        ])
+        await update.message.reply_text(
+            "📌 *Telegram sahifamizga obuna bo'ling*\n\n"
+            "🔞 Yangilarini o'tkazib yubormang🤳\n\n"
+            "👇",
+            reply_markup=channel_kb,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Error sending channel promo for user {user_id}: {e}")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Main text message handler"""

@@ -25,6 +25,9 @@ BTN_USERS = "👥 Userlar"
 BTN_BOOKINGS = "📋 Bronlar"
 BTN_CHECK_USERS = "🔍 Hammani tekshirish"
 BTN_BLOCKED_LIST = "🚫 Bloklaganlar ro'yxati"
+BTN_BAN_USER = "⛔️ Userni ban qilish"
+BTN_UNBAN_USER = "✅ Ban ochish"
+BTN_BANNED_LIST = "📋 Ban qilinganlar ro'yxati"
 BTN_ADMINS = "👮 Adminlar"
 BTN_BROADCAST = "📢 Broadcast"
 BTN_SEND_USER = "💬 Userga xabar"
@@ -781,6 +784,8 @@ async def show_users(update, context, page=0):
     rows = [nav_buttons] if nav_buttons else []
     rows.append([InlineKeyboardButton("🔍 Hammani tekshirish", callback_data="users_check_all")])
     rows.append([InlineKeyboardButton("🚫 Bloklaganlar ro'yxati", callback_data="users_blocked_list:0")])
+    rows.append([InlineKeyboardButton("⛔️ Ban qilish", callback_data="ban_prompt"), InlineKeyboardButton("✅ Ban ochish", callback_data="unban_prompt")])
+    rows.append([InlineKeyboardButton("📋 Ban qilinganlar ro'yxati", callback_data="banned_list:0")])
     markup = InlineKeyboardMarkup(rows)
 
     try:
@@ -837,6 +842,64 @@ async def show_blocked_list(update, context, page=0):
         if page < total_pages - 1:
             nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"users_blocked_list:{page + 1}"))
         rows = [nav_buttons] if nav_buttons else []
+        markup = InlineKeyboardMarkup(rows) if rows else None
+
+    try:
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=markup, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(text, reply_markup=markup, parse_mode="Markdown")
+    except Exception:
+        plain = text.replace('\\', '').replace('*', '').replace('`', '')
+        if update.callback_query:
+            await update.callback_query.edit_message_text(plain, reply_markup=markup)
+        else:
+            await update.message.reply_text(plain, reply_markup=markup)
+
+
+BANNED_PER_PAGE = 15
+
+
+async def show_banned_list(update, context, page=0):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from ban_manager import get_banned_users
+
+    def esc(s):
+        s = str(s)
+        for ch in ['_', '*', '`', '[', ']']:
+            s = s.replace(ch, '\\' + ch)
+        return s
+
+    banned = get_banned_users()
+    total = len(banned)
+
+    if total == 0:
+        text = "📋 *Ban qilinganlar ro'yxati*\n\nHozircha hech kim ban qilinmagan."
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("⛔️ Ban qilish", callback_data="ban_prompt")]])
+    else:
+        total_pages = max(1, (total + BANNED_PER_PAGE - 1) // BANNED_PER_PAGE)
+        page = max(0, min(page, total_pages - 1))
+        start_idx = page * BANNED_PER_PAGE
+        end_idx = start_idx + BANNED_PER_PAGE
+        page_items = banned[start_idx:end_idx]
+
+        text = f"📋 *Ban qilinganlar ro'yxati*\n\nJami: {total}\nSahifa: {page + 1}/{total_pages}\n\n"
+        rows = []
+        for uid, info in page_items:
+            name = esc(info.get("first_name", "—"))
+            username = info.get("username", "—")
+            username_part = f"@{esc(username)}" if username and username != "—" else "—"
+            date = info.get("banned_date", "—")
+            text += f"• {name} | {username_part} | `{uid}`\n  📅 {date}\n"
+            rows.append([InlineKeyboardButton(f"✅ {name} ni qaytarish", callback_data=f"unban_from_list:{uid}")])
+
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"banned_list:{page - 1}"))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"banned_list:{page + 1}"))
+        if nav_buttons:
+            rows.append(nav_buttons)
         markup = InlineKeyboardMarkup(rows) if rows else None
 
     try:
@@ -1606,6 +1669,37 @@ async def handle_input_mode(update, context, mode):
             set_state(user_id, mode="")
         return True
 
+    # ===== Ban / Unban by User ID =====
+    if mode == "ban_user_id" and text:
+        from ban_manager import ban_user
+        try:
+            target_id = int(text)
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
+            return True
+        ok = ban_user(target_id, banned_by=user_id)
+        set_state(user_id, mode="")
+        if ok:
+            await message.reply_text(f"⛔️ User `{target_id}` ban qilindi.", parse_mode="Markdown")
+        else:
+            await message.reply_text("❌ Bu userni ban qilib bo'lmaydi (super admin).")
+        return True
+
+    if mode == "unban_user_id" and text:
+        from ban_manager import unban_user
+        try:
+            target_id = int(text)
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri ID. Faqat raqam yuboring.")
+            return True
+        ok = unban_user(target_id)
+        set_state(user_id, mode="")
+        if ok:
+            await message.reply_text(f"✅ User `{target_id}` ban ochildi.", parse_mode="Markdown")
+        else:
+            await message.reply_text("❌ Bu user ban ro'yxatida topilmadi.")
+        return True
+
     # ===== Limit referral display % =====
     if mode == "limit_referral_id" and text:
         from referrals import get_real_referral_stats
@@ -1813,6 +1907,49 @@ async def handle_admin_callback(update, context):
     if data.startswith("users_blocked_list:"):
         page = int(data.split(":", 1)[1])
         await show_blocked_list(update, context, page=page)
+        return True
+
+    if data == "ban_prompt":
+        set_state(user_id, mode="ban_user_id")
+        await query.message.reply_text(
+            "⛔️ *Userni ban qilish*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+
+    if data == "unban_prompt":
+        set_state(user_id, mode="unban_user_id")
+        await query.message.reply_text(
+            "✅ *Ban ochish*\n\nUser ID ni yuboring:",
+            reply_markup=cancel_kb(),
+            parse_mode="Markdown"
+        )
+        return True
+
+    if data.startswith("banned_list:"):
+        page = int(data.split(":", 1)[1])
+        await show_banned_list(update, context, page=page)
+        return True
+
+    if data.startswith("ban_from_list:"):
+        target_id = int(data.split(":", 1)[1])
+        from ban_manager import ban_user
+        ok = ban_user(target_id, banned_by=user_id)
+        if ok:
+            await query.message.reply_text(f"⛔️ User `{target_id}` ban qilindi.", parse_mode="Markdown")
+        else:
+            await query.message.reply_text("❌ Bu userni ban qilib bo'lmaydi (super admin).")
+        return True
+
+    if data.startswith("unban_from_list:"):
+        target_id = int(data.split(":", 1)[1])
+        from ban_manager import unban_user
+        ok = unban_user(target_id)
+        if ok:
+            await query.message.reply_text(f"✅ User `{target_id}` ban ochildi.", parse_mode="Markdown")
+        else:
+            await query.message.reply_text("❌ Bu user ban ro'yxatida topilmadi.")
         return True
 
     if data.startswith("payout:paid:"):

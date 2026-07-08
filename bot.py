@@ -1161,7 +1161,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_video(i_chat_id, iv_id, caption=i_caption, protect_content=True)
         return
 
-    if data.startswith("su:") or data.startswith("payout:") or data.startswith("users_page:") or data == "users_check_all" or data.startswith("users_blocked_list:"):
+    if data.startswith("su:") or data.startswith("payout:") or data.startswith("users_page:") or data == "users_check_all" or data.startswith("users_blocked_list:") or data in ("ban_prompt", "unban_prompt") or data.startswith("banned_list:") or data.startswith("ban_from_list:") or data.startswith("unban_from_list:"):
         from admin_panel import handle_admin_callback
         await handle_admin_callback(update, context)
         return

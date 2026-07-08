@@ -61,6 +61,10 @@ def get_available_slots(date):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start command handler"""
     user_id = update.effective_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
     is_new_user = user_id not in user_db  # check BEFORE register_user marks them as seen
     register_user(update.effective_user)
     if user_id not in users:
@@ -168,6 +172,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Main text message handler"""
     user_id = update.effective_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
     text = update.message.text
     register_user(update.effective_user)
     if user_id not in users:
@@ -713,6 +721,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await context.bot.send_message(user_id, BAN_MESSAGE)
+        return
     data = query.data
 
     # ============ PROFILE / REFERRAL CALLBACKS ============
@@ -1291,6 +1303,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle document (PDF) uploads - treat as payment screenshot"""
     user_id = update.effective_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
     register_user(update.effective_user)
     
     if step(user_id) == "payment_screenshot":
@@ -1342,6 +1358,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle photo uploads (payment screenshots)"""
     user_id = update.effective_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
     register_user(update.effective_user)
     
     # Admin panel photo inputs
@@ -1411,6 +1431,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle phone contact sharing"""
     user_id = update.effective_user.id
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
     register_user(update.effective_user)
     phone = update.message.contact.phone_number
     users[user_id]["phone"] = phone
@@ -1441,7 +1465,11 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle video uploads"""
     user_id = update.effective_user.id
-    
+    from ban_manager import is_banned, BAN_MESSAGE
+    if is_banned(user_id):
+        await update.message.reply_text(BAN_MESSAGE)
+        return
+
     # Admin panel video inputs
     if is_in_admin_panel(user_id):
         if await handle_admin_message(update, context):

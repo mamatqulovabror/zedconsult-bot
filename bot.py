@@ -156,7 +156,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await update.message.reply_text(
             "📌 *Telegram sahifamizga obuna bo'ling*\n\n"
-            "🔞 Yangilarini o'tkazib yubormang🤳\n\n"
+            "Yangilarini o'tkazib yubormang🤳\n\n"
             "👇",
             reply_markup=channel_kb,
             parse_mode="Markdown"

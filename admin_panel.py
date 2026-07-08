@@ -1910,7 +1910,7 @@ async def handle_admin_callback(update, context):
         return True
 
     if data == "ban_prompt":
-        set_state(user_id, mode="ban_user_id")
+        set_state(admin_id, mode="ban_user_id")
         await query.message.reply_text(
             "⛔️ *Userni ban qilish*\n\nUser ID ni yuboring:",
             reply_markup=cancel_kb(),
@@ -1919,7 +1919,7 @@ async def handle_admin_callback(update, context):
         return True
 
     if data == "unban_prompt":
-        set_state(user_id, mode="unban_user_id")
+        set_state(admin_id, mode="unban_user_id")
         await query.message.reply_text(
             "✅ *Ban ochish*\n\nUser ID ni yuboring:",
             reply_markup=cancel_kb(),
@@ -1935,7 +1935,7 @@ async def handle_admin_callback(update, context):
     if data.startswith("ban_from_list:"):
         target_id = int(data.split(":", 1)[1])
         from ban_manager import ban_user
-        ok = ban_user(target_id, banned_by=user_id)
+        ok = ban_user(target_id, banned_by=admin_id)
         if ok:
             await query.message.reply_text(f"⛔️ User `{target_id}` ban qilindi.", parse_mode="Markdown")
         else:
